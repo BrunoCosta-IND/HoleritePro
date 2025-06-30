@@ -1,11 +1,29 @@
-import { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Eye, EyeOff, Settings } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+
+// Função para login via Baserow
+async function loginBaserow(email, senha) {
+  const token = 'QWD51BL7wHeIyccSLWEgWoT9JCWkdc8z'
+  const tableId = '591349'
+  const url = `https://api.baserow.io/api/database/rows/table/${tableId}/?user_field_names=true&filter__email__equal=${encodeURIComponent(email)}&filter__senha__equal=${encodeURIComponent(senha)}`
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Token ${token}` }
+  })
+  const data = await res.json()
+  if (data.count > 0) {
+    // Login OK, retorna o usuário
+    return data.results[0]
+  } else {
+    // Login inválido
+    return null
+  }
+}
 
 const LoginUnificado = ({ theme, toggleTheme }) => {
   const [formData, setFormData] = useState({
@@ -16,6 +34,7 @@ const LoginUnificado = ({ theme, toggleTheme }) => {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [lembrar, setLembrar] = useState(false)
+  const [msg, setMsg] = useState('')
   const navigate = useNavigate()
 
   // Simulação de dados
@@ -27,21 +46,6 @@ const LoginUnificado = ({ theme, toggleTheme }) => {
     { cpf: '987.654.321-00', nome: 'Maria Santos', senha: '123456' },
     { cpf: '111.444.777-35', nome: 'Pedro Oliveira Santos', senha: '123456' }
   ]
-
-  useEffect(() => {
-    const dadosSalvos = localStorage.getItem('loginUnificadoLembrar')
-    if (dadosSalvos) {
-      const { usuario, senha } = JSON.parse(dadosSalvos)
-      setFormData({ usuario, senha })
-      setLembrar(true)
-    }
-  }, [])
-
-  const isEmail = (value) => /.+@.+\..+/.test(value)
-  const isCPF = (value) => {
-    const numbers = value.replace(/\D/g, '')
-    return numbers.length === 11
-  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -166,6 +170,44 @@ const LoginUnificado = ({ theme, toggleTheme }) => {
     setIsLoading(false)
   }
 
+  const isEmail = (value) => /.+@.+\..+/.test(value)
+  const isCPF = (value) => {
+    const numbers = value.replace(/\D/g, '')
+    return numbers.length === 11
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault()
+    setIsLoading(true)
+    setError('')
+    setMsg('Verificando...')
+
+    const { usuario, senha } = formData
+    if (!usuario || !senha) {
+      setError('Preencha todos os campos.')
+      setIsLoading(false)
+      return
+    }
+
+    if (lembrar) {
+      localStorage.setItem('loginUnificadoLembrar', JSON.stringify({ usuario, senha }))
+    } else {
+      localStorage.removeItem('loginUnificadoLembrar')
+    }
+
+    const user = await loginBaserow(usuario, senha)
+    setIsLoading(false)
+    if (user) {
+      setMsg('Login realizado com sucesso! Bem-vindo, ' + user.nome)
+      localStorage.setItem('usuarioLogado', JSON.stringify(user))
+      setTimeout(() => {
+        navigate('/admin-dashboard')
+      }, 1000)
+    } else {
+      setError('E-mail ou senha inválidos.')
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#18181b]">
       <div className="w-full h-screen flex rounded-3xl shadow-2xl bg-black overflow-hidden relative">
@@ -175,7 +217,7 @@ const LoginUnificado = ({ theme, toggleTheme }) => {
             Faça seu login
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">.</span>
           </h1>
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form className="space-y-6" onSubmit={handleLogin}>
             <div>
               <Label htmlFor="usuario" className="text-gray-300 mb-1">E-mail (Admin) ou CPF (Funcionário)</Label>
               <input
@@ -250,6 +292,7 @@ const LoginUnificado = ({ theme, toggleTheme }) => {
               )}
             </Button>
           </form>
+          <div style={{ marginTop: 16, minHeight: 24, textAlign: 'center', color: msg.includes('sucesso') ? '#22c55e' : '#f87171' }}>{msg}</div>
         </div>
         {/* Lado direito: Imagem com fade */}
         <div className="hidden md:block w-1/2 h-full relative">

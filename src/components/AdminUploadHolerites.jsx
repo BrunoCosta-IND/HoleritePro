@@ -20,7 +20,6 @@ import {
   Trash2,
   Send
 } from 'lucide-react'
-import { supabase } from '@/lib/supabaseClient'
 
 const AdminUploadHolerites = ({ theme, toggleTheme }) => {
   const navigate = useNavigate()
@@ -204,14 +203,14 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
       // Gerar nome seguro para o arquivo
       const nomeArquivoSeguro = arquivo.nome
         .normalize('NFD')
-        .replace(/[0-\u036f]/g, '') // remove acentos
+        .replace(/[\u0300-\u036f]/g, '') // remove acentos
         .replace(/[^A-Za-z0-9_.-]/g, '_'); // só letras, números, underline, ponto e traço
 
       // Gerar nome seguro para a pasta do funcionário
       let pastaFuncionario = arquivo.funcionario.nome
         .toUpperCase()
         .normalize('NFD')
-        .replace(/[0-\u036f]/g, '') // remove acentos
+        .replace(/[\u0300-\u036f]/g, '') // remove acentos
         .replace(/[^A-Z0-9]/g, '_'); // só letras maiúsculas, números e underline
 
       if (!pastaFuncionario) pastaFuncionario = 'FUNCIONARIO_DESCONHECIDO';
@@ -231,16 +230,19 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
       console.log('Nomes funcionários normalizados:', funcionarios.map(f => normalizarNome(f.nome)));
 
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('holerites')
+        .from('teste')
         .upload(storagePath, arquivo.file, { upsert: true })
 
+      // Log detalhado do erro e do tipo do arquivo
+      console.log('Tipo do arquivo:', arquivo.file?.type);
       if (uploadError) {
+        console.error('Erro detalhado do Supabase:', uploadError);
         setArquivos(prev => prev.map(a => a.id === arquivo.id ? { ...a, status: 'erro', erro: 'Erro ao fazer upload do PDF' } : a))
         continue
       }
 
       // 2. Gerar URL pública do PDF
-      const { data: urlData } = supabase.storage.from('holerites').getPublicUrl(storagePath)
+      const { data: urlData } = supabase.storage.from('teste').getPublicUrl(storagePath)
       const pdfUrl = urlData?.publicUrl || ''
 
       // 3. Extrair mês e ano do nome do arquivo

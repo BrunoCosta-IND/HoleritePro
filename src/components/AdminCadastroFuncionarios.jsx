@@ -22,7 +22,6 @@ import {
   CreditCard
 } from 'lucide-react'
 import { nanoid } from 'nanoid'
-import { supabase } from '../lib/supabaseClient'
 
 const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
   const navigate = useNavigate()
@@ -68,15 +67,6 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
     }
 
     // Buscar funcionários do Supabase
-    const fetchFuncionarios = async () => {
-      const { data, error } = await supabase.from('funcionarios').select('*')
-      if (!error && data) {
-        setFuncionariosExistentes(data)
-      }
-    }
-    fetchFuncionarios()
-
-    // Verificar se atingiu o limite
     // (isso será atualizado após buscar do Supabase)
     // eslint-disable-next-line
   }, [])
@@ -212,45 +202,6 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
       return
     }
 
-    // Cadastro no Supabase Auth
-    const { data: signUpData, error: supabaseError } = await supabase.auth.signUp({
-      email,
-      password: senha,
-      options: {
-        data: {
-          nome: formData.nomeCompleto,
-          cpf: formData.cpf,
-          whatsapp: formData.whatsapp,
-          cargo: formData.cargo,
-          status: formData.status
-        }
-      }
-    })
-    if (supabaseError) {
-      setErroSupabase('Erro ao cadastrar funcionário no Supabase: ' + supabaseError.message)
-      setIsLoading(false)
-      return
-    }
-
-    // Cadastro na tabela funcionarios
-    const { error: insertError } = await supabase
-      .from('funcionarios')
-      .insert([
-        {
-          email,
-          nome: formData.nomeCompleto,
-          cpf: formData.cpf,
-          whatsapp: formData.whatsapp,
-          cargo: formData.cargo,
-          status: formData.status
-        }
-      ])
-    if (insertError) {
-      setErroSupabase('Funcionário criado no Auth, mas falhou ao salvar na tabela funcionarios: ' + insertError.message)
-      setIsLoading(false)
-      return
-    }
-
     // Simular salvamento local
     setTimeout(() => {
       setFuncionariosExistentes(prev => [...prev, {
@@ -305,17 +256,9 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
 
   // Função para apagar funcionário
   const handleDeleteFuncionario = async (cpf) => {
-    const { error } = await supabase
-      .from('funcionarios')
-      .delete()
-      .eq('cpf', cpf);
-
-    if (!error) {
-      setFuncionariosExistentes(prev => prev.filter(f => f.cpf !== cpf));
-    } else {
-      alert('Erro ao apagar funcionário: ' + error.message);
-    }
-  };
+    // (isso será atualizado após buscar do Supabase)
+    // eslint-disable-next-line
+  }
 
   const funcionariosRestantes = empresaConfig.limiteFuncionarios - funcionariosExistentes.length
 
