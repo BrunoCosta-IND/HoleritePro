@@ -194,40 +194,48 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
     const senha = gerarSenha()
     setSenhaGerada(senha)
 
-    // Definir e-mail para cadastro (usar o campo de e-mail real)
-    const email = formData.email
-    if (!email) {
-      setErroSupabase('E-mail é obrigatório para cadastro no Supabase.')
-      setIsLoading(false)
-      return
+    // Montar payload para o Baserow
+    const payload = {
+      nome: formData.nomeCompleto,
+      email: formData.email,
+      senha: senha,
+      cpf: formData.cpf,
+      whatsapp: formData.whatsapp,
+      cargo: formData.cargo,
+      status: formData.status
     }
 
-    // Simular salvamento local
-    setTimeout(() => {
-      setFuncionariosExistentes(prev => [...prev, {
-        cpf: formData.cpf,
-        nome: formData.nomeCompleto,
-        whatsapp: formData.whatsapp,
-        cargo: formData.cargo,
-        status: formData.status,
-        senha,
-        email
-      }])
-
-      // Limpar formulário
-      setFormData({
-        nomeCompleto: '',
-        cpf: '',
-        whatsapp: '',
-        cargo: '',
-        status: 'Ativo',
-        email: ''
+    try {
+      const res = await fetch('https://api.baserow.io/api/database/rows/table/591365/?user_field_names=true', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Token QWD51BL7wHeIyccSLWEgWoT9JCWkdc8z',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
       })
-
+      const data = await res.json()
+      if (res.ok) {
+        // Limpar formulário e mostrar sucesso
+        setFormData({
+          nomeCompleto: '',
+          cpf: '',
+          whatsapp: '',
+          cargo: '',
+          status: 'Ativo',
+          email: ''
+        })
+        setIsLoading(false)
+        setShowSuccess(true)
+        setTimeout(() => setShowSuccess(false), 5000)
+      } else {
+        setErroSupabase('Erro ao cadastrar funcionário: ' + (data?.error || ''))
+        setIsLoading(false)
+      }
+    } catch (err) {
+      setErroSupabase('Erro de conexão com o Baserow.')
       setIsLoading(false)
-      setShowSuccess(true)
-      setTimeout(() => setShowSuccess(false), 5000)
-    }, 1000)
+    }
   }
 
   // Função para resetar senha

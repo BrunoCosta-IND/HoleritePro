@@ -6,10 +6,9 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Eye, EyeOff, Settings } from 'lucide-react'
 
-// Função para login via Baserow
-async function loginBaserow(email, senha) {
+// Função genérica para login via Baserow
+async function loginBaserow(email, senha, tableId) {
   const token = 'QWD51BL7wHeIyccSLWEgWoT9JCWkdc8z'
-  const tableId = '591349'
   const url = `https://api.baserow.io/api/database/rows/table/${tableId}/?user_field_names=true&filter__email__equal=${encodeURIComponent(email)}&filter__senha__equal=${encodeURIComponent(senha)}`
 
   const res = await fetch(url, {
@@ -56,127 +55,7 @@ const LoginUnificado = ({ theme, toggleTheme }) => {
     if (error) setError('')
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError('')
-
-    const { usuario, senha } = formData
-    if (!usuario || !senha) {
-      setError('Preencha todos os campos.')
-      setIsLoading(false)
-      return
-    }
-
-    if (lembrar) {
-      localStorage.setItem('loginUnificadoLembrar', JSON.stringify({ usuario, senha }))
-    } else {
-      localStorage.removeItem('loginUnificadoLembrar')
-    }
-
-    if (isEmail(usuario)) {
-      // Tenta login de admin apenas se o e-mail for de admin
-      if (usuario === 'admin@empresa.com') {
-        // Login de admin usando Supabase
-        const { error } = await supabase.auth.signInWithPassword({
-          email: usuario,
-          password: senha
-        })
-        setTimeout(() => {
-          if (!error) {
-            navigate('/admin-dashboard')
-          } else {
-            setError('E-mail ou senha de administrador inválidos. ' + error.message)
-          }
-          setIsLoading(false)
-        }, 1200)
-        return;
-      }
-
-      // Se não for admin, tenta buscar funcionário pelo e-mail
-      try {
-        const { data, error } = await supabase
-          .from('funcionarios')
-          .select('email, nome, cpf')
-          .eq('email', usuario)
-          .single();
-        if (error || !data) {
-          setError('E-mail não encontrado.');
-          setIsLoading(false);
-          return;
-        }
-        // Autenticar usando o e-mail encontrado
-        const { error: authError } = await supabase.auth.signInWithPassword({
-          email: data.email,
-          password: senha
-        });
-        setTimeout(() => {
-          if (!authError) {
-            localStorage.setItem('funcionarioLogado', JSON.stringify(data));
-            navigate('/funcionario-dashboard');
-          } else {
-            setError('Senha inválida para o e-mail informado. ' + authError.message);
-          }
-          setIsLoading(false);
-        }, 1200);
-      } catch (err) {
-        setError('Erro ao tentar autenticar.');
-        setIsLoading(false);
-      }
-      return;
-    }
-
-    if (isCPF(usuario)) {
-      // Buscar e-mail pelo CPF na tabela funcionarios
-      try {
-        const { data, error } = await supabase
-          .from('funcionarios')
-          .select('email, nome, cpf');
-
-        if (error || !data) {
-          setError('CPF não encontrado.');
-          setIsLoading(false);
-          return;
-        }
-
-        const funcionario = data.find(f => f.cpf && f.cpf.replace(/\D/g, '') === usuario.replace(/\D/g, ''));
-        if (!funcionario) {
-          setError('CPF não encontrado.');
-          setIsLoading(false);
-          return;
-        }
-        // Autenticar usando o e-mail encontrado
-        const { error: authError } = await supabase.auth.signInWithPassword({
-          email: funcionario.email,
-          password: senha
-        });
-        setTimeout(() => {
-          if (!authError) {
-            localStorage.setItem('funcionarioLogado', JSON.stringify(funcionario));
-            navigate('/funcionario-dashboard');
-          } else {
-            setError('Senha inválida para o CPF informado. ' + authError.message);
-          }
-          setIsLoading(false);
-        }, 1200);
-      } catch (err) {
-        setError('Erro ao tentar autenticar.');
-        setIsLoading(false);
-      }
-      return;
-    }
-
-    setError('Digite um e-mail válido (admin) ou CPF válido (funcionário).')
-    setIsLoading(false)
-  }
-
-  const isEmail = (value) => /.+@.+\..+/.test(value)
-  const isCPF = (value) => {
-    const numbers = value.replace(/\D/g, '')
-    return numbers.length === 11
-  }
-
-  async function handleLogin(e) {
+  const handleLogin = async (e) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
@@ -195,17 +74,50 @@ const LoginUnificado = ({ theme, toggleTheme }) => {
       localStorage.removeItem('loginUnificadoLembrar')
     }
 
-    const user = await loginBaserow(usuario, senha)
-    setIsLoading(false)
-    if (user) {
-      setMsg('Login realizado com sucesso! Bem-vindo, ' + user.nome)
-      localStorage.setItem('usuarioLogado', JSON.stringify(user))
-      setTimeout(() => {
-        navigate('/admin-dashboard')
-      }, 1000)
+    // Verifica se é e-mail ou CPF
+    const isEmail = usuario.includes('@')
+
+    if (isEmail) {
+      // Login de admin pelo e-mail
+      const adminResponse = await fetch(`https://api.baserow.io/api/database/rows/table/591349/?user_field_names=true&filter__email__equal=${encodeURIComponent(usuario)}&filter__senha__equal=${encodeURIComponent(senha)}`, {
+        headers: { Authorization: 'Token QWD51BL7wHeIyccSLWEgWoT9JCWkdc8z' }
+      })
+      const adminData = await adminResponse.json()
+      const admin = adminData.count > 0 ? adminData.results[0] : null
+      if (admin) {
+        setMsg('Login realizado com sucesso! Bem-vindo, ' + admin.nome)
+        localStorage.setItem('usuarioLogado', JSON.stringify({ ...admin, tipo: 'admin' }))
+        setTimeout(() => {
+          navigate('/admin-dashboard')
+        }, 1000)
+        setIsLoading(false)
+        return
+      } else {
+        setError('E-mail ou senha incorretos.')
+        setIsLoading(false)
+        return
+      }
     } else {
-      setError('E-mail ou senha inválidos.')
+      // Login de funcionário pelo CPF
+      const url = `https://api.baserow.io/api/database/rows/table/591365/?user_field_names=true&filter__cpf__equal=${encodeURIComponent(usuario)}&filter__senha__equal=${encodeURIComponent(senha)}`
+      const res = await fetch(url, {
+        headers: { Authorization: 'Token QWD51BL7wHeIyccSLWEgWoT9JCWkdc8z' }
+      })
+      const data = await res.json()
+      const funcionario = data.count > 0 ? data.results[0] : null
+      if (funcionario) {
+        setMsg('Login realizado com sucesso! Bem-vindo, ' + funcionario.nome)
+        localStorage.setItem('usuarioLogado', JSON.stringify({ ...funcionario, tipo: 'funcionario' }))
+        setTimeout(() => {
+          navigate('/funcionario-dashboard')
+        }, 1000)
+        setIsLoading(false)
+        return
+      }
     }
+
+    setMsg('E-mail/CPF ou senha inválidos.')
+    setIsLoading(false)
   }
 
   return (

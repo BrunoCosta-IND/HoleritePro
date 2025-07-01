@@ -26,14 +26,17 @@ const FuncionarioDashboard = ({ theme, toggleTheme }) => {
 
   useEffect(() => {
     // Verificar se o funcionário está logado
-    const funcionarioLogado = localStorage.getItem('funcionarioLogado')
-    if (!funcionarioLogado) {
+    const usuarioLogado = localStorage.getItem('usuarioLogado')
+    if (!usuarioLogado) {
       navigate('/funcionario-login')
       return
     }
-
-    const dadosFuncionario = JSON.parse(funcionarioLogado)
-    setFuncionario(dadosFuncionario)
+    const dadosUsuario = JSON.parse(usuarioLogado)
+    if (dadosUsuario.tipo !== 'funcionario') {
+      navigate('/')
+      return
+    }
+    setFuncionario(dadosUsuario)
 
     // Simular holerites do funcionário
     const holeritesFuncionario = [
