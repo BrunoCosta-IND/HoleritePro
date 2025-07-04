@@ -22,10 +22,31 @@ import {
   CreditCard
 } from 'lucide-react'
 import { nanoid } from 'nanoid'
+import { supabase } from '@/lib/utils'
 
 const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
   const navigate = useNavigate()
+  const [acessoNegado, setAcessoNegado] = useState(false)
   
+  // Verificação de permissão de administrador
+  useEffect(() => {
+    const usuarioLogado = JSON.parse(localStorage.getItem('usuarioLogado'))
+    if (!usuarioLogado || usuarioLogado.tipo !== 'admin') {
+      setAcessoNegado(true)
+    }
+  }, [])
+
+  if (acessoNegado) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="bg-zinc-900 p-8 rounded-xl shadow-xl text-center">
+          <h1 className="text-2xl font-bold text-red-500 mb-4">Acesso negado</h1>
+          <p className="text-gray-300">Você não tem permissão para acessar esta página.</p>
+        </div>
+      </div>
+    )
+  }
+
   // Configurações da empresa
   const [empresaConfig, setEmpresaConfig] = useState({
     nome: 'Minha Empresa Personalizada',
@@ -34,10 +55,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
   })
 
   // Lista de funcionários existentes (simulado)
-  const [funcionariosExistentes, setFuncionariosExistentes] = useState([
-    { cpf: '123.456.789-00', nome: 'João Silva' },
-    { cpf: '987.654.321-00', nome: 'Maria Santos' }
-  ])
+  const [funcionariosExistentes, setFuncionariosExistentes] = useState([])
 
   // Dados do formulário
   const [formData, setFormData] = useState({
@@ -45,7 +63,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
     cpf: '',
     whatsapp: '',
     cargo: '',
-    status: 'Ativo',
+    tipo: 'comum',
     email: ''
   })
 
@@ -58,6 +76,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
   const [erroSupabase, setErroSupabase] = useState('')
   const [senhaResetada, setSenhaResetada] = useState('')
   const [emailResetado, setEmailResetado] = useState('')
+  const [busca, setBusca] = useState('')
 
   useEffect(() => {
     // Carregar configurações do localStorage
@@ -66,10 +85,22 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
       setEmpresaConfig(prev => ({ ...prev, ...JSON.parse(configSalva) }))
     }
 
-    // Buscar funcionários do Supabase
-    // (isso será atualizado após buscar do Supabase)
-    // eslint-disable-next-line
+    // Buscar funcionários do Baserow
+    fetchFuncionarios()
   }, [])
+
+  // Buscar funcionários do Baserow
+  const fetchFuncionarios = async () => {
+    try {
+      const res = await fetch(BASEROW_URL, {
+        headers: { Authorization: `Token ${BASEROW_TOKEN}` }
+      })
+      const data = await res.json()
+      setFuncionariosExistentes(data.results || [])
+    } catch (err) {
+      setErroSupabase('Erro ao buscar funcionários do banco.')
+    }
+  }
 
   // Máscara para WhatsApp
   const formatWhatsApp = (value) => {
@@ -78,6 +109,15 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
       return numbers.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
     }
     return numbers.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
+  }
+
+  // Função para formatar CPF
+  function formatCPF(value) {
+    const numbers = value.replace(/\D/g, '').slice(0, 11);
+    if (numbers.length <= 3) return numbers;
+    if (numbers.length <= 6) return numbers.replace(/(\d{3})(\d+)/, '$1.$2');
+    if (numbers.length <= 9) return numbers.replace(/(\d{3})(\d{3})(\d+)/, '$1.$2.$3');
+    return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2}).*/, '$1.$2.$3-$4');
   }
 
   // Validação de CPF
@@ -110,7 +150,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
     let formattedValue = value
 
     if (field === 'cpf') {
-      formattedValue = value.replace(/\D/g, '') // Aceita só números
+      formattedValue = formatCPF(value)
     } else if (field === 'whatsapp') {
       formattedValue = formatWhatsApp(value)
     }
@@ -184,88 +224,84 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
     if (!validateForm()) return
-
     setIsLoading(true)
-    setErroSupabase('')
-
-    // Gerar senha aleatória
     const senha = gerarSenha()
     setSenhaGerada(senha)
-
-    // Montar payload para o Baserow
     const payload = {
       nome: formData.nomeCompleto,
       email: formData.email,
       senha: senha,
-      cpf: formData.cpf,
+      cpf: formData.cpf.replace(/\D/g, ''),
       whatsapp: formData.whatsapp,
-      cargo: formData.cargo,
-      status: formData.status
+      cargo: formData.cargo
     }
-
     try {
-      const res = await fetch('https://api.baserow.io/api/database/rows/table/591365/?user_field_names=true', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Token QWD51BL7wHeIyccSLWEgWoT9JCWkdc8z',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      })
-      const data = await res.json()
-      if (res.ok) {
-        // Limpar formulário e mostrar sucesso
-        setFormData({
-          nomeCompleto: '',
-          cpf: '',
-          whatsapp: '',
-          cargo: '',
-          status: 'Ativo',
-          email: ''
-        })
-        setIsLoading(false)
-        setShowSuccess(true)
-        setTimeout(() => setShowSuccess(false), 5000)
+      let insertResult;
+      if (formData.tipo === 'admin') {
+        insertResult = await supabase.from('usuarios').insert([{ ...payload, tipo: 'admin' }]);
       } else {
-        setErroSupabase('Erro ao cadastrar funcionário: ' + (data?.error || ''))
-        setIsLoading(false)
+        insertResult = await supabase.from('funcionarios').insert([payload]);
+      }
+      const { data, error } = insertResult;
+      console.log('Supabase insert:', insertResult);
+      if (!error) {
+        setFormData({ nomeCompleto: '', cpf: '', whatsapp: '', cargo: '', tipo: 'comum', email: '' });
+        setIsLoading(false);
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 5000);
+      } else {
+        setErroSupabase('Erro ao cadastrar usuário: ' + (error.message || ''));
+        setIsLoading(false);
       }
     } catch (err) {
-      setErroSupabase('Erro de conexão com o Baserow.')
-      setIsLoading(false)
+      setErroSupabase('Erro de conexão com o Supabase.');
+      setIsLoading(false);
     }
   }
 
   // Função para resetar senha
-  const handleResetSenha = async (email) => {
+  const handleResetSenha = async (funcionario) => {
     setErroSupabase('')
     setSenhaResetada('')
     setEmailResetado('')
     const novaSenha = gerarSenha()
     try {
-      const response = await fetch('http://localhost:3001/api/resetar-senha', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, novaSenha }),
+      const res = await fetch(`https://api.baserow.io/api/database/rows/table/${TABLE_FUNCIONARIOS}/${funcionario.id}/?user_field_names=true`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Token ${BASEROW_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ senha: novaSenha })
       })
-      const result = await response.json()
-      if (!response.ok) {
-        setErroSupabase('Erro ao resetar senha: ' + result.error)
+      if (!res.ok) {
+        setErroSupabase('Erro ao resetar senha.')
         return
       }
       setSenhaResetada(novaSenha)
-      setEmailResetado(email)
+      setEmailResetado(funcionario.email)
+      fetchFuncionarios()
     } catch (err) {
-      setErroSupabase('Erro de conexão com o backend.')
+      setErroSupabase('Erro de conexão com o Baserow.')
     }
   }
 
   // Função para apagar funcionário
-  const handleDeleteFuncionario = async (cpf) => {
-    // (isso será atualizado após buscar do Supabase)
-    // eslint-disable-next-line
+  const handleDeleteFuncionario = async (funcionario) => {
+    try {
+      const res = await fetch(`https://api.baserow.io/api/database/rows/table/${TABLE_FUNCIONARIOS}/${funcionario.id}/?user_field_names=true`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Token ${BASEROW_TOKEN}` }
+      })
+      if (!res.ok) {
+        setErroSupabase('Erro ao apagar funcionário.')
+        return
+      }
+      fetchFuncionarios()
+    } catch (err) {
+      setErroSupabase('Erro de conexão com o Baserow.')
+    }
   }
 
   const funcionariosRestantes = empresaConfig.limiteFuncionarios - funcionariosExistentes.length
@@ -308,8 +344,8 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         </div>
       </header>
 
-      <div className="container mx-auto px-6 py-8">
-        <div className="max-w-2xl mx-auto">
+      <div className="w-full flex flex-col items-center">
+        <div className="max-w-5xl w-full">
           {/* Alerta de limite */}
           {showLimitAlert && (
             <Alert className="mb-6 bg-red-900/50 border-red-700">
@@ -327,16 +363,6 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
               <AlertDescription className="text-green-200">
                 Funcionário cadastrado com sucesso! Um link de primeiro acesso será enviado via WhatsApp.<br />
                 <span className="font-bold">Senha gerada: {senhaGerada}</span>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Mensagem de erro do Supabase */}
-          {erroSupabase && (
-            <Alert className="mb-6 bg-red-900/50 border-red-700">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription className="text-red-200">
-                {erroSupabase}
               </AlertDescription>
             </Alert>
           )}
@@ -386,7 +412,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
                     placeholder="Digite o CPF (apenas números)"
                     value={formData.cpf}
                     onChange={(e) => handleInputChange('cpf', e.target.value)}
-                    maxLength={11}
+                    maxLength={14}
                     className={errors.cpf ? 'border-red-500' : ''}
                   />
                   {errors.cpf && (
@@ -446,16 +472,16 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
                   )}
                 </div>
 
-                {/* Status */}
+                {/* Tipo de Cadastro */}
                 <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
+                  <Label htmlFor="tipo">Tipo de Cadastro *</Label>
+                  <Select value={formData.tipo} onValueChange={(value) => handleInputChange('tipo', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Ativo">Ativo</SelectItem>
-                      <SelectItem value="Inativo">Inativo</SelectItem>
+                      <SelectItem value="comum">Comum</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -507,59 +533,81 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
 
           {/* Lista de Funcionários Cadastrados */}
           {funcionariosExistentes.length > 0 && (
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Users className="h-5 w-5" />
-                  <span>Funcionários Cadastrados</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm text-left text-gray-200">
-                    <thead className="bg-zinc-800">
-                      <tr>
-                        <th className="px-4 py-2">Nome</th>
-                        <th className="px-4 py-2">CPF</th>
-                        <th className="px-4 py-2">WhatsApp</th>
-                        <th className="px-4 py-2">Cargo</th>
-                        <th className="px-4 py-2">Status</th>
-                        <th className="px-4 py-2 text-center">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {funcionariosExistentes.map((f, idx) => (
-                        <tr key={f.cpf + idx} className="border-b border-zinc-700">
-                          <td className="px-4 py-2">{f.nome || f.nomeCompleto}</td>
-                          <td className="px-4 py-2">{f.cpf}</td>
-                          <td className="px-4 py-2">{f.whatsapp || '-'}</td>
-                          <td className="px-4 py-2">{f.cargo || '-'}</td>
-                          <td className="px-4 py-2">{f.status || 'Ativo'}</td>
-                          <td className="px-4 py-2 text-center">
-                            <button
-                              type="button"
-                              className="text-red-400 hover:text-red-600 font-bold px-2 py-1 rounded transition"
-                              title="Apagar funcionário"
-                              onClick={() => handleDeleteFuncionario(f.cpf)}
-                            >
-                              Apagar
-                            </button>
-                            <button
-                              type="button"
-                              className="text-yellow-400 hover:text-yellow-600 font-bold px-2 py-1 rounded transition ml-2"
-                              title="Resetar senha"
-                              onClick={() => handleResetSenha(f.email)}
-                            >
-                              Resetar Senha
-                            </button>
-                          </td>
+            <div className="w-full mt-8">
+              <Card className="w-full">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="flex items-center space-x-2">
+                    <Users className="h-5 w-5" />
+                    <span>Funcionários Cadastrados</span>
+                  </CardTitle>
+                  <div className="flex items-center">
+                    <input
+                      type="text"
+                      placeholder="Buscar funcionário..."
+                      value={busca}
+                      onChange={e => setBusca(e.target.value)}
+                      className="rounded-lg px-3 py-1 bg-zinc-800 text-white border border-zinc-700 focus:border-blue-500 focus:outline-none text-sm"
+                      style={{ minWidth: 200 }}
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="w-full">
+                    <table className="w-full text-sm text-left text-gray-200">
+                      <thead className="bg-zinc-800">
+                        <tr>
+                          <th className="px-4 py-2">Nome</th>
+                          <th className="px-4 py-2">CPF</th>
+                          <th className="px-4 py-2">WhatsApp</th>
+                          <th className="px-4 py-2">Cargo</th>
+                          <th className="px-4 py-2">Tipo</th>
+                          <th className="px-4 py-2 text-center">Ações</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+                      </thead>
+                      <tbody>
+                        {funcionariosExistentes.filter(f => {
+                          const termo = busca.toLowerCase()
+                          return (
+                            f.nome?.toLowerCase().includes(termo) ||
+                            f.cpf?.toLowerCase().includes(termo) ||
+                            f.whatsapp?.toLowerCase().includes(termo) ||
+                            f.cargo?.toLowerCase().includes(termo) ||
+                            f.tipo?.toLowerCase().includes(termo) ||
+                            f.email?.toLowerCase().includes(termo)
+                          )
+                        }).map((f, idx) => (
+                          <tr key={f.cpf + idx} className="border-b border-zinc-700">
+                            <td className="px-4 py-2">{f.nome || f.nomeCompleto}</td>
+                            <td className="px-4 py-2">{f.cpf}</td>
+                            <td className="px-4 py-2">{f.whatsapp || '-'}</td>
+                            <td className="px-4 py-2">{f.cargo || '-'}</td>
+                            <td className="px-4 py-2">{f.tipo || 'comum'}</td>
+                            <td className="px-4 py-2 text-center">
+                              <button
+                                type="button"
+                                className="text-red-400 hover:text-red-600 font-bold px-2 py-1 rounded transition"
+                                title="Apagar funcionário"
+                                onClick={() => handleDeleteFuncionario(f)}
+                              >
+                                Apagar
+                              </button>
+                              <button
+                                type="button"
+                                className="text-yellow-400 hover:text-yellow-600 font-bold px-2 py-1 rounded transition ml-2"
+                                title="Resetar senha"
+                                onClick={() => handleResetSenha(f)}
+                              >
+                                Resetar Senha
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {/* Informações adicionais */}

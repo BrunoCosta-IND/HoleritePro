@@ -18,6 +18,7 @@ import {
   Calendar,
   Building2
 } from 'lucide-react'
+import { supabase } from '@/lib/utils'
 
 const FuncionarioDashboard = ({ theme, toggleTheme }) => {
   const navigate = useNavigate()
@@ -38,40 +39,23 @@ const FuncionarioDashboard = ({ theme, toggleTheme }) => {
     }
     setFuncionario(dadosUsuario)
 
-    // Simular holerites do funcionário
-    const holeritesFuncionario = [
-      {
-        id: 1,
-        mes: 'Junho',
-        ano: 2025,
-        dataEnvio: '2025-06-23',
-        status: 'pendente',
-        arquivo: 'Holerites_Junho_2025.pdf',
-        valor: 'R$ 5.500,00'
-      },
-      {
-        id: 2,
-        mes: 'Maio',
-        ano: 2025,
-        dataEnvio: '2025-05-22',
-        status: 'assinado',
-        arquivo: 'Holerites_Maio_2025.pdf',
-        valor: 'R$ 5.500,00',
-        dataAssinatura: '2025-05-23'
-      },
-      {
-        id: 3,
-        mes: 'Abril',
-        ano: 2025,
-        dataEnvio: '2025-04-20',
-        status: 'assinado',
-        arquivo: 'Holerites_Abril_2025.pdf',
-        valor: 'R$ 5.500,00',
-        dataAssinatura: '2025-04-21'
+    // Buscar holerites do Supabase para o CPF do funcionário
+    const fetchHolerites = async () => {
+      const { data, error } = await supabase
+        .from('holerite')
+        .select('*')
+        .eq('cpf', dadosUsuario.cpf)
+        .order('ano', { ascending: false })
+        .order('mes', { ascending: false })
+      console.log('CPF logado:', dadosUsuario.cpf)
+      console.log('Holerites retornados:', data)
+      if (!error && data) {
+        setHolerites(data)
+      } else {
+        setHolerites([])
       }
-    ]
-
-    setHolerites(holeritesFuncionario)
+    }
+    fetchHolerites()
   }, [navigate])
 
   const handleLogout = () => {
@@ -84,15 +68,15 @@ const FuncionarioDashboard = ({ theme, toggleTheme }) => {
       // Redirecionar para tela de assinatura
       navigate(`/funcionario/holerite/${holerite.id}`)
     } else {
-      // Simular visualização do PDF
-      alert(`Visualizando holerite de ${holerite.mes}/${holerite.ano}`)
+      // Visualizar PDF
+      window.open(holerite.file_url, '_blank')
     }
   }
 
   const handleDownloadHolerite = (holerite) => {
     if (holerite.status === 'assinado') {
-      // Simular download
-      alert(`Download iniciado: ${holerite.arquivo}`)
+      // Download do PDF
+      window.open(holerite.file_url, '_blank')
     }
   }
 
@@ -283,10 +267,6 @@ const FuncionarioDashboard = ({ theme, toggleTheme }) => {
                             </div>
                           )}
                         </div>
-                        
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Valor: {holerite.valor}
-                        </p>
                       </div>
                     </div>
 
