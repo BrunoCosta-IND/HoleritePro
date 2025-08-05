@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { supabase } from '@/lib/utils'
 import { 
   Building2, 
   Users, 
@@ -19,53 +20,155 @@ import {
   AlertTriangle,
   Crown,
   LogOut,
-  User
+  User,
+  Settings,
+  Shield
 } from 'lucide-react'
 
 const AdminDashboard = ({ theme, toggleTheme }) => {
   const navigate = useNavigate()
   
-  // Configurações da empresa (normalmente viriam do localStorage ou API)
+  // Estados para dados reais
   const [empresaConfig, setEmpresaConfig] = useState({
-    nome: 'Minha Empresa Personalizada',
-    logo: null,
-    corBotoes: '#ff6b35'
+    nome: 'Sistema de Gestão de Holerites',
+    logo: null
   })
 
-  // Funcionalidades PRO (vem das configurações do Criador)
   const [funcionalidadesPRO, setFuncionalidadesPRO] = useState({
-    webhookWhatsApp: false, // Desativado conforme teste anterior
-    relatorioAssinaturas: true
+    webhookWhatsApp: false,
+    relatorioAssinaturas: false
   })
 
-  // Dados do dashboard
   const [dashboardData, setDashboardData] = useState({
-    totalFuncionarios: 25,
-    holeritesEnviados: 142,
-    holeritesAssinados: 98,
-    ultimoUpload: '23/06/2025',
-    ultimosUploads: [
-      { nome: 'Holerites_Junho_2025.pdf', data: '23/06/2025', status: 'Assinado por 7/10' },
-      { nome: 'Holerites_Maio_2025.pdf', data: '22/05/2025', status: 'Assinado por 10/10' },
-      { nome: 'Holerites_Abril_2025.pdf', data: '20/04/2025', status: 'Assinado por 9/10' }
-    ]
+    totalFuncionarios: 0,
+    holeritesEnviados: 0,
+    holeritesAssinados: 0,
+    ultimoUpload: 'N/A',
+    ultimosUploads: []
   })
+
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Carregar configurações do localStorage
-    const configSalva = localStorage.getItem('empresaConfig')
-    if (configSalva) {
-      setEmpresaConfig(JSON.parse(configSalva))
-    }
-
-    const funcionalidadesSalvas = localStorage.getItem('funcionalidadesPRO')
-    if (funcionalidadesSalvas) {
-      setFuncionalidadesPRO(JSON.parse(funcionalidadesSalvas))
-    }
+    carregarDadosReais()
   }, [])
 
+  const carregarDadosReais = async () => {
+    try {
+      setLoading(true)
+
+      // Configuração padrão da empresa
+      setEmpresaConfig({
+        nome: 'Sistema de Gestão de Holerites',
+        logo: null
+      })
+
+      // 2. Carregar funcionalidades PRO
+      const { data: funcData, error: funcError } = await supabase
+        .from('funcionalidades_pro')
+        .select('*')
+        .single()
+
+      if (funcData && !funcError) {
+        setFuncionalidadesPRO({
+          webhookWhatsApp: funcData.webhook_whatsapp || false,
+          relatorioAssinaturas: funcData.relatorio_assinaturas || false
+        })
+      }
+
+      // 3. Contar funcionários
+      const { count: totalFuncionarios, error: funcCountError } = await supabase
+        .from('funcionarios')
+        .select('*', { count: 'exact', head: true })
+        .eq('ativo', true)
+
+      // 4. Contar holerites enviados no mês atual
+      const mesAtual = new Date().getMonth() + 1
+      const anoAtual = new Date().getFullYear()
+      
+      const { count: holeritesEnviados, error: holeritesError } = await supabase
+        .from('holerite')
+        .select('*', { count: 'exact', head: true })
+        .eq('mes', mesAtual)
+        .eq('ano', anoAtual)
+
+      // 5. Contar holerites assinados
+      const { count: holeritesAssinados, error: assinadosError } = await supabase
+        .from('holerite')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'assinado')
+
+      // 6. Buscar último upload
+      const { data: ultimosUploads, error: uploadsError } = await supabase
+        .from('uploads_historico')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(3)
+
+      setDashboardData({
+        totalFuncionarios: totalFuncionarios || 0,
+        holeritesEnviados: holeritesEnviados || 0,
+        holeritesAssinados: holeritesAssinados || 0,
+        ultimoUpload: ultimosUploads && ultimosUploads.length > 0 
+          ? formatarData(ultimosUploads[0].created_at) 
+          : 'N/A',
+        ultimosUploads: processarUploadsRecentes(ultimosUploads || [])
+      })
+
+    } catch (error) {
+      console.error('Erro ao carregar dados do dashboard:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const processarUploadsRecentes = (uploads) => {
+    return uploads.map(upload => ({
+      nome: upload.nome_arquivo || 'Arquivo',
+      data: formatarData(upload.created_at),
+      status: `${upload.holerites_processados || 0}/${upload.total_arquivos || 0}`
+    }))
+  }
+
+  const formatarData = (data) => {
+    return new Date(data).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const getMonthName = (mes) => {
+    const meses = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ]
+    return meses[mes - 1] || 'Desconhecido'
+  }
+
   const handleNavigation = (route) => {
+    console.log('🎯 Navegando para:', route)
     navigate(route)
+  }
+
+  // Debug: verificar se o componente está renderizando
+  console.log('🔍 AdminDashboard renderizando - Cards visíveis:', {
+    empresaConfig,
+    funcionalidadesPRO,
+    dashboardData
+  })
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -75,8 +178,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              {/* Logo da empresa */}
-              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
                 <Building2 className="h-6 w-6 text-white" />
               </div>
               <div>
@@ -85,23 +187,33 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
               </div>
             </div>
             
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-            >
-              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </Button>
-            {/* Botão de sair */}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => navigate('/')}
-              title="Sair"
-              className="ml-2"
-            >
-              <LogOut className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/admin/configuracoes')}
+                title="Configurações"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+              >
+                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </Button>
+              {/* Botão de sair */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => navigate('/')}
+                title="Sair"
+                className="ml-2"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -182,7 +294,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
         </div>
 
         {/* Ações rápidas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
           {/* Adicionar funcionário */}
           <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200" 
                 onClick={() => handleNavigation('/admin/funcionarios/cadastrar')}>
@@ -199,8 +311,8 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
+            <CardContent className="flex flex-col h-full">
+              <p className="text-sm text-muted-foreground flex-grow">
                 Cadastre funcionários com CPF, nome, cargo e WhatsApp para recebimento de holerites.
               </p>
               <Button 
@@ -210,6 +322,37 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
               >
                 <UserPlus className="h-4 w-4 mr-2" />
                 Cadastrar Funcionário
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Cadastrar Administrador */}
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200" 
+                onClick={() => handleNavigation('/admin/admins/cadastrar')}>
+            <CardHeader>
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                  <Shield className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Cadastrar Administrador</CardTitle>
+                  <CardDescription>
+                    Criar nova conta de administrador
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-col h-full">
+              <p className="text-sm text-muted-foreground flex-grow">
+                Crie contas de administrador com acesso completo ao sistema de gestão.
+              </p>
+              <Button 
+                className="w-full mt-4" 
+                variant="outline"
+                style={{ borderColor: empresaConfig.corBotoes, color: empresaConfig.corBotoes }}
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Criar Admin
               </Button>
             </CardContent>
           </Card>
@@ -230,8 +373,8 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
+            <CardContent className="flex flex-col h-full">
+              <p className="text-sm text-muted-foreground flex-grow">
                 Faça upload de múltiplos arquivos PDF. O sistema identifica automaticamente cada funcionário.
               </p>
               <Button 
@@ -261,8 +404,8 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
+              <CardContent className="flex flex-col h-full">
+                <p className="text-sm text-muted-foreground flex-grow">
                   Visualize quais funcionários assinaram os holerites e gere relatórios detalhados.
                 </p>
                 <Button 
@@ -290,13 +433,22 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <Alert className="bg-yellow-100 dark:bg-yellow-950/30 border-yellow-300 dark:border-yellow-700">
+              <CardContent className="flex flex-col h-full">
+                <Alert className="bg-yellow-100 dark:bg-yellow-950/30 border-yellow-300 dark:border-yellow-700 flex-grow">
                   <Crown className="h-4 w-4" />
                   <AlertDescription className="text-yellow-800 dark:text-yellow-200">
                     Este recurso está disponível apenas na versão PRO. Entre em contato com o suporte para desbloquear.
                   </AlertDescription>
                 </Alert>
+                <Button 
+                  className="w-full mt-4" 
+                  variant="outline"
+                  disabled
+                  style={{ borderColor: empresaConfig.corBotoes, color: empresaConfig.corBotoes, opacity: 0.5 }}
+                >
+                  <Crown className="h-4 w-4 mr-2" />
+                  Versão PRO
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -314,22 +466,30 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {dashboardData.ultimosUploads.map((upload, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border border-border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">{upload.nome}</p>
-                      <p className="text-xs text-muted-foreground">Enviado em {upload.data}</p>
+            {dashboardData.ultimosUploads.length > 0 ? (
+              <div className="space-y-3">
+                {dashboardData.ultimosUploads.map((upload, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 border border-border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-sm">{upload.nome}</p>
+                        <p className="text-xs text-muted-foreground">Enviado em {upload.data}</p>
+                      </div>
                     </div>
+                    <Badge variant={upload.status.includes('0/') ? 'secondary' : 'default'}>
+                      {upload.status}
+                    </Badge>
                   </div>
-                  <Badge variant={upload.status.includes('10/10') ? 'default' : 'secondary'}>
-                    {upload.status}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhum upload realizado ainda</p>
+                <p className="text-sm">Faça o primeiro upload de holerites para ver o histórico aqui</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>

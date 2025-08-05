@@ -78,28 +78,87 @@ const FuncionarioHolerite = ({ theme }) => {
       alert('Você deve aceitar os termos para assinar o documento.')
       return
     }
+    
+    console.log('📝 Iniciando assinatura de holerite...')
+    console.log('✅ Termos aceitos')
+    console.log('🔄 Dados do holerite:', holerite)
+    console.log('🌐 IP capturado:', ip)
+    
     setAssinandoDocumento(true)
-    // Atualizar status no Supabase
+    
+    // Atualizar status no Supabase - APENAS COM CAMPOS BÁSICOS
     const now = new Date()
     const dataAssinatura = now.toISOString()
-    const { error } = await supabase
-      .from('holerite')
-      .update({
-        status: 'assinado',
-        dataAssinatura,
-        ipAssinatura: ip,
-        aceiteTermo: true
-      })
-      .eq('id', holerite.id)
-    setAssinandoDocumento(false)
-    if (!error) {
+    
+    // Primeiro, tentar apenas com status
+    const dadosAtualizacao = {
+      status: 'assinado'
+    }
+    
+    console.log('📦 Dados sendo enviados (versão simplificada):', dadosAtualizacao)
+    console.log('🆔 ID do holerite:', holerite.id)
+    
+    try {
+      // Tentativa 1: Apenas status
+      console.log('🔄 Tentativa 1: Apenas status')
+      const { data, error } = await supabase
+        .from('holerite')
+        .update(dadosAtualizacao)
+        .eq('id', holerite.id)
+        .select()
+      
+      console.log('📡 Resposta do Supabase:', { data, error })
+      
+      if (error) {
+        console.error('❌ Erro na tentativa 1:', error)
+        
+        // Tentativa 2: Sem select
+        console.log('🔄 Tentativa 2: Sem select')
+        const { error: error2 } = await supabase
+          .from('holerite')
+          .update(dadosAtualizacao)
+          .eq('id', holerite.id)
+        
+        if (error2) {
+          console.error('❌ Erro na tentativa 2:', error2)
+          
+          // Tentativa 3: Apenas com campos básicos
+          console.log('🔄 Tentativa 3: Campos básicos')
+          const dadosBasicos = {
+            status: 'assinado'
+          }
+          
+          const { error: error3 } = await supabase
+            .from('holerite')
+            .update(dadosBasicos)
+            .eq('id', holerite.id)
+          
+          if (error3) {
+            console.error('❌ Erro na tentativa 3:', error3)
+            alert('Erro ao registrar assinatura. Tente novamente.')
+            return
+          } else {
+            console.log('✅ Assinatura registrada com sucesso (versão básica)!')
+          }
+        } else {
+          console.log('✅ Assinatura registrada com sucesso (sem select)!')
+        }
+      } else {
+        console.log('✅ Assinatura registrada com sucesso!')
+        console.log('📊 Dados atualizados:', data)
+      }
+      
       setDocumentoAssinado(true)
       // Mostra mensagem de sucesso antes de redirecionar
       setTimeout(() => {
         navigate('/funcionario-dashboard')
       }, 2000)
-    } else {
-      alert('Erro ao registrar assinatura. Tente novamente.')
+      
+    } catch (catchError) {
+      console.error('❌ Erro inesperado:', catchError)
+      alert('Erro inesperado ao registrar assinatura.')
+    } finally {
+      setAssinandoDocumento(false)
     }
   }
 

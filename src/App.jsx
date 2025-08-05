@@ -1,12 +1,10 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import CriadorLogin from './components/CriadorLogin'
-import CriadorDashboard from './components/CriadorDashboard'
-import CriadorPersonalizacao from './components/CriadorPersonalizacao'
-import CriadorFuncionalidades from './components/CriadorFuncionalidades'
 import AdminDashboard from './components/AdminDashboard'
 import AdminCadastroFuncionarios from './components/AdminCadastroFuncionarios'
+import AdminCadastroAdmins from './components/AdminCadastroAdmins'
 import AdminUploadHolerites from './components/AdminUploadHolerites'
+import AdminConfiguracoes from './components/AdminConfiguracoes'
 import FuncionarioLogin from './components/FuncionarioLogin'
 import FuncionarioDashboard from './components/FuncionarioDashboard'
 import FuncionarioHolerite from './components/FuncionarioHolerite'
@@ -43,34 +41,9 @@ function App() {
         <Routes>
           <Route path="/" element={<LoginUnificado theme={theme} toggleTheme={toggleTheme} />} />
           
-          {/* Rotas do Criador */}
-          <Route 
-            path="/criador-login" 
-            element={
-              <CriadorLogin 
-                theme={theme} 
-                toggleTheme={toggleTheme} 
-                setIsAuthenticated={setIsAuthenticated}
-                setUserType={setUserType}
-              />
-            } 
-          />
-          <Route 
-            path="/criador-dashboard" 
-            element={<CriadorDashboard theme={theme} toggleTheme={toggleTheme} />} 
-          />
-          <Route 
-            path="/criador-personalizacao" 
-            element={<CriadorPersonalizacao theme={theme} toggleTheme={toggleTheme} />} 
-          />
-          <Route 
-            path="/criador-funcionalidades" 
-            element={<CriadorFuncionalidades theme={theme} toggleTheme={toggleTheme} />} 
-          />
-          
           {/* Rotas do Administrador */}
           <Route 
-            path="/admin-dashboard" 
+            path="/admin" 
             element={<AdminDashboard theme={theme} toggleTheme={toggleTheme} />} 
           />
           <Route 
@@ -78,8 +51,16 @@ function App() {
             element={<AdminCadastroFuncionarios theme={theme} toggleTheme={toggleTheme} />} 
           />
           <Route 
+            path="/admin/admins/cadastrar" 
+            element={<AdminCadastroAdmins theme={theme} toggleTheme={toggleTheme} />} 
+          />
+          <Route 
             path="/admin/holerites/upload" 
             element={<AdminUploadHolerites theme={theme} toggleTheme={toggleTheme} />} 
+          />
+          <Route 
+            path="/admin/configuracoes" 
+            element={<AdminConfiguracoes theme={theme} toggleTheme={toggleTheme} />} 
           />
           
           {/* Rotas do Funcionário */}
