@@ -98,21 +98,12 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'assinado')
 
-      // 6. Buscar último upload
-      const { data: ultimosUploads, error: uploadsError } = await supabase
-        .from('uploads_historico')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(3)
-
       setDashboardData({
         totalFuncionarios: totalFuncionarios || 0,
         holeritesEnviados: holeritesEnviados || 0,
         holeritesAssinados: holeritesAssinados || 0,
-        ultimoUpload: ultimosUploads && ultimosUploads.length > 0 
-          ? formatarData(ultimosUploads[0].created_at) 
-          : 'N/A',
-        ultimosUploads: processarUploadsRecentes(ultimosUploads || [])
+        ultimoUpload: 'N/A',
+        ultimosUploads: []
       })
 
     } catch (error) {
@@ -122,13 +113,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
     }
   }
 
-  const processarUploadsRecentes = (uploads) => {
-    return uploads.map(upload => ({
-      nome: upload.nome_arquivo || 'Arquivo',
-      data: formatarData(upload.created_at),
-      status: `${upload.holerites_processados || 0}/${upload.total_arquivos || 0}`
-    }))
-  }
+
 
   const formatarData = (data) => {
     return new Date(data).toLocaleDateString('pt-BR', {
@@ -149,16 +134,8 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
   }
 
   const handleNavigation = (route) => {
-    console.log('🎯 Navegando para:', route)
     navigate(route)
   }
-
-  // Debug: verificar se o componente está renderizando
-  console.log('🔍 AdminDashboard renderizando - Cards visíveis:', {
-    empresaConfig,
-    funcionalidadesPRO,
-    dashboardData
-  })
 
   if (loading) {
     return (
@@ -390,7 +367,8 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
 
           {/* Gerar relatórios - Condicional */}
           {funcionalidadesPRO.relatorioAssinaturas ? (
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200"
+                  onClick={() => handleNavigation('/admin/relatorios')}>
               <CardHeader>
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -419,35 +397,32 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-dashed border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200"
+                  onClick={() => handleNavigation('/admin/relatorios')}>
               <CardHeader>
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg flex items-center justify-center">
-                    <Crown className="h-5 w-5 text-white" />
+                  <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                    <BarChart3 className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg text-yellow-700 dark:text-yellow-300">Relatórios PRO</CardTitle>
-                    <CardDescription className="text-yellow-600 dark:text-yellow-400">
-                      Recurso não disponível
+                    <CardTitle className="text-lg">Estatísticas</CardTitle>
+                    <CardDescription>
+                      Relatórios e métricas
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col h-full">
-                <Alert className="bg-yellow-100 dark:bg-yellow-950/30 border-yellow-300 dark:border-yellow-700 flex-grow">
-                  <Crown className="h-4 w-4" />
-                  <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                    Este recurso está disponível apenas na versão PRO. Entre em contato com o suporte para desbloquear.
-                  </AlertDescription>
-                </Alert>
+                <p className="text-sm text-muted-foreground flex-grow">
+                  Visualize estatísticas detalhadas sobre funcionários, holerites e assinaturas.
+                </p>
                 <Button 
                   className="w-full mt-4" 
                   variant="outline"
-                  disabled
-                  style={{ borderColor: empresaConfig.corBotoes, color: empresaConfig.corBotoes, opacity: 0.5 }}
+                  style={{ borderColor: empresaConfig.corBotoes, color: empresaConfig.corBotoes }}
                 >
-                  <Crown className="h-4 w-4 mr-2" />
-                  Versão PRO
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Ver Estatísticas
                 </Button>
               </CardContent>
             </Card>

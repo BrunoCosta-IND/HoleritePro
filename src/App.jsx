@@ -5,10 +5,13 @@ import AdminCadastroFuncionarios from './components/AdminCadastroFuncionarios'
 import AdminCadastroAdmins from './components/AdminCadastroAdmins'
 import AdminUploadHolerites from './components/AdminUploadHolerites'
 import AdminConfiguracoes from './components/AdminConfiguracoes'
+import AdminRelatorios from './components/AdminRelatorios'
 import FuncionarioLogin from './components/FuncionarioLogin'
 import FuncionarioDashboard from './components/FuncionarioDashboard'
 import FuncionarioHolerite from './components/FuncionarioHolerite'
 import LoginUnificado from './components/AdminLogin'
+import PWAInstallBanner from './components/PWAInstallBanner'
+import { startKeepAlive } from './lib/keepAlive'
 import './App.css'
 
 function App() {
@@ -35,11 +38,19 @@ function App() {
     }
   }, [theme])
 
+  // Manter Supabase ativo (apenas em produção)
+  useEffect(() => {
+    if (import.meta.env.PROD) {
+      startKeepAlive();
+    }
+  }, [])
+
   return (
     <Router>
       <div className="App">
         <Routes>
           <Route path="/" element={<LoginUnificado theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/login" element={<LoginUnificado theme={theme} toggleTheme={toggleTheme} />} />
           
           {/* Rotas do Administrador */}
           <Route 
@@ -62,6 +73,10 @@ function App() {
             path="/admin/configuracoes" 
             element={<AdminConfiguracoes theme={theme} toggleTheme={toggleTheme} />} 
           />
+          <Route 
+            path="/admin/relatorios" 
+            element={<AdminRelatorios theme={theme} toggleTheme={toggleTheme} />} 
+          />
           
           {/* Rotas do Funcionário */}
           <Route 
@@ -77,6 +92,9 @@ function App() {
             element={<FuncionarioHolerite theme={theme} toggleTheme={toggleTheme} />} 
           />
         </Routes>
+        
+        {/* Banner de instalação PWA */}
+        <PWAInstallBanner />
       </div>
     </Router>
   )

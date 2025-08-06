@@ -6,9 +6,9 @@ export function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
-// Configurações do Supabase - NOVO PROJETO
-const supabaseUrl = 'https://lyzuwgjwvtsfgwttxzdk.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5enV3Z2p3dnRzZmd3dHR4emRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzNDQ4MDMsImV4cCI6MjA2OTkyMDgwM30.-9NttBkzpCL8oYuxgB1W6-7avA1AKcye4z30RpLtyRE';
+// Configurações do Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lyzuwgjwvtsfgwttxzdk.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5enV3Z2p3dnRzZmd3dHR4emRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzNDQ4MDMsImV4cCI6MjA2OTkyMDgwM30.-9NttBkzpCL8oYuxgB1W6-7avA1AKcye4z30RpLtyRE';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

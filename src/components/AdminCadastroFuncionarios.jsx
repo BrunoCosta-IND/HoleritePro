@@ -21,7 +21,8 @@ import {
   Users,
   CreditCard,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  QrCode
 } from 'lucide-react'
 import { supabase } from '@/lib/utils'
 
@@ -64,6 +65,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
     nomeCompleto: '',
     cpf: '',
     whatsapp: '',
+    pix: '',
     cargo: '',
     tipo: 'comum',
     email: ''
@@ -187,8 +189,19 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
 
     if (!formData.cpf.trim()) {
       newErrors.cpf = 'CPF é obrigatório'
-    } else if (!validateCPF(formData.cpf)) {
-      newErrors.cpf = 'CPF inválido'
+    } else {
+      const cpfLimpo = formData.cpf.replace(/\D/g, '')
+      if (cpfLimpo.length !== 11) {
+        newErrors.cpf = 'CPF deve ter 11 dígitos'
+      } else if (!validateCPF(cpfLimpo)) {
+        newErrors.cpf = 'CPF inválido'
+      }
+    }
+
+    if (!formData.whatsapp.trim()) {
+      newErrors.whatsapp = 'WhatsApp é obrigatório'
+    } else if (formData.whatsapp.replace(/\D/g, '').length < 10) {
+      newErrors.whatsapp = 'WhatsApp deve ter pelo menos 10 dígitos'
     }
 
     if (!formData.cargo.trim()) {
@@ -196,13 +209,9 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'E-mail é obrigatório'
+      newErrors.email = 'Email é obrigatório'
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'E-mail inválido'
-    }
-
-    if (!formData.whatsapp.trim()) {
-      newErrors.whatsapp = 'WhatsApp é obrigatório'
+      newErrors.email = 'Email inválido'
     }
 
     setErrors(newErrors)
@@ -218,8 +227,6 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
   // Função para enviar webhook quando funcionário for cadastrado
   const enviarWebhookFuncionarioCadastrado = async (funcionario) => {
     try {
-      console.log('Verificando configurações do webhook...')
-      
       // Buscar configurações do webhook
       const { data: webhookConfig, error: webhookError } = await supabase
         .from('webhook_config')
@@ -228,12 +235,10 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         .limit(1)
 
       if (webhookError) {
-        console.error('Erro ao buscar configurações do webhook:', webhookError)
         return
       }
 
       if (!webhookConfig || webhookConfig.length === 0) {
-        console.log('Nenhuma configuração de webhook encontrada')
         return
       }
 
@@ -241,16 +246,12 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
       
       // Verificar se webhook está ativo e se evento de funcionário cadastrado está habilitado
       if (!config.ativo || !config.funcionario_cadastrado) {
-        console.log('Webhook inativo ou evento de funcionário cadastrado desabilitado')
         return
       }
 
       if (!config.n8n_url) {
-        console.log('URL do webhook não configurada')
         return
       }
-
-      console.log('Enviando webhook para funcionário cadastrado...')
       
       const payload = {
         evento: 'funcionario_cadastrado',
@@ -265,8 +266,6 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         sistema: 'gestao-holerites'
       }
 
-      console.log('Payload do webhook:', payload)
-
       const response = await fetch(config.n8n_url, {
         method: 'POST',
         headers: {
@@ -274,14 +273,8 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         },
         body: JSON.stringify(payload)
       })
-
-      if (response.ok) {
-        console.log('✅ Webhook enviado com sucesso para funcionário cadastrado')
-      } else {
-        console.error('❌ Erro ao enviar webhook:', response.status, response.statusText)
-      }
     } catch (error) {
-      console.error('❌ Erro ao enviar webhook:', error)
+      // Erro silencioso
     }
   }
 
@@ -333,6 +326,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         nome: formData.nomeCompleto.trim(),
         cpf: formData.cpf.replace(/\D/g, ''), // Remove formatação
         whatsapp: formData.whatsapp,
+        pix: formData.pix.trim(),
         cargo: formData.cargo.trim(),
         email: formData.email.trim().toLowerCase(),
         senha: senha,
@@ -372,8 +366,6 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         
         setErroSupabase(mensagemErro)
       } else {
-        console.log('Funcionário cadastrado com sucesso:', data)
-        
         // Enviar webhook para funcionário cadastrado
         if (data && data.length > 0) {
           await enviarWebhookFuncionarioCadastrado(data[0])
@@ -385,8 +377,8 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
           nomeCompleto: '',
           cpf: '',
           whatsapp: '',
+          pix: '',
           cargo: '',
-          tipo: 'comum',
           email: ''
         })
         
@@ -394,7 +386,6 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         await fetchFuncionarios()
       }
     } catch (error) {
-      console.error('Erro geral ao cadastrar funcionário:', error)
       setErroSupabase(`Erro de conexão: ${error.message}`)
     } finally {
       setIsLoading(false)
@@ -411,21 +402,17 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         .eq('id', funcionario.id)
 
       if (error) {
-        console.error('Erro ao resetar senha:', error)
         setErroSupabase('Erro ao resetar senha')
       } else {
         setSenhaResetada(novaSenha)
         setEmailResetado(funcionario.email)
       }
     } catch (error) {
-      console.error('Erro ao resetar senha:', error)
       setErroSupabase('Erro de conexão')
     }
   }
 
   const handleDeleteFuncionario = async (funcionario) => {
-    if (!confirm(`Tem certeza que deseja excluir ${funcionario.nome}?`)) return
-
     try {
       const { error } = await supabase
         .from('funcionarios')
@@ -433,13 +420,11 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         .eq('id', funcionario.id)
 
       if (error) {
-        console.error('Erro ao excluir funcionário:', error)
         setErroSupabase('Erro ao excluir funcionário')
       } else {
         await fetchFuncionarios()
       }
     } catch (error) {
-      console.error('Erro ao excluir funcionário:', error)
       setErroSupabase('Erro de conexão')
     }
   }
@@ -579,6 +564,25 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
                   )}
                 </div>
 
+                {/* PIX */}
+                <div>
+                  <Label htmlFor="pix">PIX (Informação)</Label>
+                  <div className="relative">
+                    <QrCode className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="pix"
+                      value={formData.pix}
+                      onChange={(e) => handleInputChange('pix', e.target.value)}
+                      placeholder="Chave PIX para referência"
+                      maxLength="100"
+                      className={`pl-10 ${errors.pix ? 'border-red-500' : ''}`}
+                    />
+                  </div>
+                  {errors.pix && (
+                    <p className="text-sm text-red-500 mt-1">{errors.pix}</p>
+                  )}
+                </div>
+
                 {/* Botão de cadastro */}
                 <Button 
                   type="submit" 
@@ -668,6 +672,9 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
                             <p className="font-medium text-sm">{funcionario.nome}</p>
                             <p className="text-xs text-muted-foreground">{funcionario.cargo}</p>
                             <p className="text-xs text-muted-foreground">{funcionario.cpf}</p>
+                            {funcionario.pix && (
+                              <p className="text-xs text-muted-foreground">PIX: {funcionario.pix}</p>
+                            )}
                           </div>
                         </div>
                       </div>

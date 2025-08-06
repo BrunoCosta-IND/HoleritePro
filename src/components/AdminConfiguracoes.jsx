@@ -64,23 +64,17 @@ const AdminConfiguracoes = ({ theme, toggleTheme }) => {
     }
   }
 
-  const carregarConfiguracoes = async () => {
-    try {
-      console.log('Carregando configurações do webhook...')
-      
-      // Carregar configurações do webhook
-      const { data: webhookData, error: webhookError } = await supabase
-        .from('webhook_config')
-        .select('*')
-        .order('updated_at', { ascending: false })
-        .limit(1)
+      const carregarConfiguracoes = async () => {
+      try {
+        // Carregar configurações do webhook
+        const { data: webhookData, error: webhookError } = await supabase
+          .from('webhook_config')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .limit(1)
 
-      console.log('Dados carregados:', webhookData)
-      console.log('Erro ao carregar:', webhookError)
-
-      if (webhookData && webhookData.length > 0 && !webhookError) {
-        const config = webhookData[0]
-        console.log('Configurações encontradas, atualizando estado...', config)
+        if (webhookData && webhookData.length > 0 && !webhookError) {
+          const config = webhookData[0]
         
         const novasConfiguracoes = {
           webhook: {
@@ -94,20 +88,16 @@ const AdminConfiguracoes = ({ theme, toggleTheme }) => {
           }
         }
         
-        console.log('Novas configurações a serem aplicadas:', novasConfiguracoes)
         setConfiguracoes(novasConfiguracoes)
-        console.log('Estado atualizado com configurações carregadas')
       } else {
-        console.log('Nenhuma configuração de webhook encontrada, usando padrões')
         // Manter os valores padrão do estado inicial
       }
     } catch (error) {
-      console.error('Erro ao carregar configurações:', error)
+      // Erro silencioso
     }
   }
 
   const handleInputChange = (secao, campo, valor) => {
-    console.log('Alterando configuração:', secao, campo, valor)
     setConfiguracoes(prev => {
       const novasConfig = {
         ...prev,
@@ -116,7 +106,6 @@ const AdminConfiguracoes = ({ theme, toggleTheme }) => {
           [campo]: valor
         }
       }
-      console.log('Novo estado das configurações:', novasConfig)
       return novasConfig
     })
   }
@@ -139,8 +128,6 @@ const AdminConfiguracoes = ({ theme, toggleTheme }) => {
       setSalvando(true)
       setMensagem(null)
 
-      console.log('Salvando configurações:', configuracoes.webhook)
-
       // Primeiro, verificar se já existe um registro
       const { data: existingData, error: selectError } = await supabase
         .from('webhook_config')
@@ -148,14 +135,12 @@ const AdminConfiguracoes = ({ theme, toggleTheme }) => {
         .limit(1)
 
       if (selectError) {
-        console.error('Erro ao verificar dados existentes:', selectError)
         throw new Error(`Erro ao verificar dados: ${selectError.message}`)
       }
 
       let result
       if (existingData && existingData.length > 0) {
         // Atualizar registro existente
-        console.log('Atualizando registro existente...', existingData[0].id)
         result = await supabase
           .from('webhook_config')
           .update({
@@ -169,7 +154,6 @@ const AdminConfiguracoes = ({ theme, toggleTheme }) => {
           .select()
       } else {
         // Inserir novo registro
-        console.log('Inserindo novo registro...')
         result = await supabase
           .from('webhook_config')
           .insert({
@@ -183,11 +167,8 @@ const AdminConfiguracoes = ({ theme, toggleTheme }) => {
       }
 
       if (result.error) {
-        console.error('Erro ao salvar:', result.error)
         throw new Error(`Erro ao salvar configurações: ${result.error.message}`)
       }
-
-      console.log('Configurações salvas com sucesso:', result)
 
       setMensagem({
         tipo: 'sucesso',
@@ -196,7 +177,6 @@ const AdminConfiguracoes = ({ theme, toggleTheme }) => {
       })
 
     } catch (error) {
-      console.error('Erro ao salvar configurações:', error)
       setMensagem({
         tipo: 'erro',
         titulo: 'Erro ao salvar',
@@ -291,8 +271,7 @@ const AdminConfiguracoes = ({ theme, toggleTheme }) => {
     )
   }
 
-  // Log do estado atual para debug
-  console.log('Estado atual das configurações:', configuracoes)
+
 
   return (
     <div className="min-h-screen bg-background">

@@ -8,8 +8,13 @@ export const usePWA = () => {
   useEffect(() => {
     // Verificar se o app já está instalado
     const checkIfInstalled = () => {
-      if (window.matchMedia('(display-mode: standalone)').matches) {
-        setIsInstalled(true)
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                          window.navigator.standalone === true
+      
+      setIsInstalled(isStandalone)
+      
+      if (isStandalone) {
+        setIsInstallable(false)
       }
     }
 
@@ -27,30 +32,40 @@ export const usePWA = () => {
       setDeferredPrompt(null)
     }
 
+    // Verificar se o navegador suporta PWA
+    const checkPWASupport = () => {
+      const isSupported = 'serviceWorker' in navigator && 'PushManager' in window
+      
+      if (!isSupported) {
+        setIsInstallable(false)
+      }
+    }
+
     // Registrar listeners
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.addEventListener('appinstalled', handleAppInstalled)
 
-    // Verificar se já está instalado
+    // Verificações iniciais
     checkIfInstalled()
+    checkPWASupport()
+
+    // Verificar periodicamente se o app foi instalado
+    const interval = setInterval(checkIfInstalled, 5000)
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
+      clearInterval(interval)
     }
   }, [])
 
   const installApp = async () => {
-    if (!deferredPrompt) return
+    if (!deferredPrompt) {
+      return
+    }
 
     deferredPrompt.prompt()
     const { outcome } = await deferredPrompt.userChoice
-
-    if (outcome === 'accepted') {
-      console.log('Usuário aceitou a instalação')
-    } else {
-      console.log('Usuário rejeitou a instalação')
-    }
 
     setDeferredPrompt(null)
     setIsInstallable(false)

@@ -45,10 +45,6 @@ const FuncionarioDashboard = ({ theme, toggleTheme }) => {
 
     // Buscar holerites do Supabase para o CPF do funcionário
     const fetchHolerites = async () => {
-      console.log('🔍 === BUSCANDO HOLERITES DO FUNCIONÁRIO ===')
-      console.log('👤 CPF do funcionário:', dadosUsuario.cpf)
-      console.log('👨‍💼 Nome do funcionário:', dadosUsuario.nome)
-      
       const { data, error } = await supabase
         .from('holerite')
         .select('*')
@@ -58,25 +54,9 @@ const FuncionarioDashboard = ({ theme, toggleTheme }) => {
         .order('mes', { ascending: false })
       
       if (error) {
-        console.error('❌ Erro ao buscar holerites:', error)
-        console.error('📋 Detalhes do erro:', {
-          message: error.message,
-          code: error.code,
-          details: error.details
-        })
         setHolerites([])
         return
       }
-      
-      console.log('✅ Holerites encontrados:', data?.length || 0)
-      console.log('📋 Lista de holerites:', data?.map(h => ({
-        id: h.id,
-        cpf: h.cpf,
-        mes: h.mes,
-        ano: h.ano,
-        status: h.status,
-        file_name: h.file_name
-      })))
       
       setHolerites(data || [])
     }
@@ -89,16 +69,12 @@ const FuncionarioDashboard = ({ theme, toggleTheme }) => {
   }
 
   const handleVisualizarHolerite = (holerite) => {
-    console.log('Visualizando holerite:', holerite)
-    
     if (holerite.status === 'pendente') {
       // Redirecionar para tela de assinatura
       navigate(`/funcionario/holerite/${holerite.id}`)
     } else if (holerite.status === 'disponivel' || holerite.status === 'assinado') {
       // Visualizar PDF
       window.open(holerite.file_url, '_blank')
-    } else {
-      console.log('Status do holerite não reconhecido:', holerite.status)
     }
   }
 

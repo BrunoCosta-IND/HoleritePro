@@ -56,9 +56,6 @@ const FuncionarioHolerite = ({ theme }) => {
         .select('*')
         .eq('id', id)
         .single()
-      console.log('ID buscado:', id)
-      console.log('CPF logado:', dadosUsuario.cpf)
-      console.log('Holerite retornado:', data)
       if (!error && data && data.cpf === dadosUsuario.cpf) {
         setHolerite(data)
       } else {
@@ -73,16 +70,72 @@ const FuncionarioHolerite = ({ theme }) => {
     navigate('/funcionario-dashboard')
   }
 
+  // Função para enviar webhook quando holerite for assinado
+  const enviarWebhookHoleriteAssinado = async (holerite, funcionario) => {
+    try {
+      // Buscar configurações do webhook
+      const { data: webhookConfig, error: webhookError } = await supabase
+        .from('webhook_config')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+
+      if (webhookError) {
+        return
+      }
+
+      if (!webhookConfig || webhookConfig.length === 0) {
+        return
+      }
+
+      const config = webhookConfig[0]
+      
+      // Verificar se webhook está ativo e se evento de holerite assinado está habilitado
+      if (!config.ativo || !config.holerite_assinado) {
+        return
+      }
+
+      if (!config.n8n_url) {
+        return
+      }
+      
+      const payload = {
+        evento: 'holerite_assinado',
+        timestamp: new Date().toISOString(),
+        holerite: {
+          id: holerite.id,
+          mes: holerite.mes,
+          ano: holerite.ano,
+          arquivo: holerite.arquivo,
+          status: 'assinado',
+          data_assinatura: new Date().toISOString()
+        },
+        funcionario: {
+          nome: funcionario?.nome || 'Não informado',
+          cpf: funcionario?.cpf || holerite.cpf,
+          telefone: funcionario?.whatsapp || 'Não informado',
+          email: funcionario?.email || 'Não informado'
+        },
+        ip: ip,
+        sistema: 'gestao-holerites'
+      }
+
+      const response = await fetch(config.n8n_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      })
+    } catch (error) {
+      // Erro silencioso
+    }
+  }
+
   const handleAssinarDocumento = async () => {
     if (!aceitouTermos) {
-      alert('Você deve aceitar os termos para assinar o documento.')
       return
     }
-    
-    console.log('📝 Iniciando assinatura de holerite...')
-    console.log('✅ Termos aceitos')
-    console.log('🔄 Dados do holerite:', holerite)
-    console.log('🌐 IP capturado:', ip)
     
     setAssinandoDocumento(true)
     
@@ -95,35 +148,23 @@ const FuncionarioHolerite = ({ theme }) => {
       status: 'assinado'
     }
     
-    console.log('📦 Dados sendo enviados (versão simplificada):', dadosAtualizacao)
-    console.log('🆔 ID do holerite:', holerite.id)
-    
     try {
       // Tentativa 1: Apenas status
-      console.log('🔄 Tentativa 1: Apenas status')
       const { data, error } = await supabase
         .from('holerite')
         .update(dadosAtualizacao)
         .eq('id', holerite.id)
         .select()
       
-      console.log('📡 Resposta do Supabase:', { data, error })
-      
       if (error) {
-        console.error('❌ Erro na tentativa 1:', error)
-        
         // Tentativa 2: Sem select
-        console.log('🔄 Tentativa 2: Sem select')
         const { error: error2 } = await supabase
           .from('holerite')
           .update(dadosAtualizacao)
           .eq('id', holerite.id)
         
         if (error2) {
-          console.error('❌ Erro na tentativa 2:', error2)
-          
           // Tentativa 3: Apenas com campos básicos
-          console.log('🔄 Tentativa 3: Campos básicos')
           const dadosBasicos = {
             status: 'assinado'
           }
@@ -134,19 +175,13 @@ const FuncionarioHolerite = ({ theme }) => {
             .eq('id', holerite.id)
           
           if (error3) {
-            console.error('❌ Erro na tentativa 3:', error3)
-            alert('Erro ao registrar assinatura. Tente novamente.')
             return
-          } else {
-            console.log('✅ Assinatura registrada com sucesso (versão básica)!')
           }
-        } else {
-          console.log('✅ Assinatura registrada com sucesso (sem select)!')
         }
-      } else {
-        console.log('✅ Assinatura registrada com sucesso!')
-        console.log('📊 Dados atualizados:', data)
       }
+      
+      // Enviar webhook após assinatura bem-sucedida
+      await enviarWebhookHoleriteAssinado(holerite, funcionario)
       
       setDocumentoAssinado(true)
       // Mostra mensagem de sucesso antes de redirecionar
@@ -155,8 +190,7 @@ const FuncionarioHolerite = ({ theme }) => {
       }, 2000)
       
     } catch (catchError) {
-      console.error('❌ Erro inesperado:', catchError)
-      alert('Erro inesperado ao registrar assinatura.')
+      // Erro silencioso
     } finally {
       setAssinandoDocumento(false)
     }
@@ -164,13 +198,11 @@ const FuncionarioHolerite = ({ theme }) => {
 
   const handleVisualizarPDF = () => {
     // Simular visualização do PDF
-    alert('Abrindo visualização do PDF do holerite...')
   }
 
   const handleDownloadPDF = () => {
     if (documentoAssinado) {
       // Simular download
-      alert(`Download iniciado: ${holerite.arquivo}`)
     }
   }
 

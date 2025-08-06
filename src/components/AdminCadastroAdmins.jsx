@@ -19,91 +19,26 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  RefreshCw
+  RefreshCw,
+  Sun,
+  Moon
 } from 'lucide-react'
 import { supabase } from '@/lib/utils'
 
 const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
   const navigate = useNavigate()
-  const [acessoNegado, setAcessoNegado] = useState(false)
-  const [verificando, setVerificando] = useState(true)
   
-  // Verificação de permissão de administrador
-  useEffect(() => {
-    console.log('🔍 Verificando permissão de admin...')
-    
-    try {
-      const usuarioLogado = localStorage.getItem('usuarioLogado')
-      console.log('📋 Dados do localStorage:', usuarioLogado)
-      
-      if (!usuarioLogado) {
-        console.log('❌ Nenhum usuário logado')
-        setAcessoNegado(true)
-        setVerificando(false)
-        return
-      }
-      
-      const dados = JSON.parse(usuarioLogado)
-      console.log('👤 Dados do usuário:', dados)
-      
-      if (!dados || dados.tipo !== 'admin') {
-        console.log('❌ Usuário não é admin:', dados?.tipo)
-        setAcessoNegado(true)
-      } else {
-        console.log('✅ Usuário é admin - acesso permitido')
-        setAcessoNegado(false)
-      }
-    } catch (error) {
-      console.error('❌ Erro ao verificar permissão:', error)
-      setAcessoNegado(true)
-    } finally {
-      setVerificando(false)
-    }
-  }, [])
-
-  // Mostrar loading enquanto verifica
-  if (verificando) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="bg-zinc-900 p-8 rounded-xl shadow-xl text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
-          <h1 className="text-xl font-semibold text-white mb-2">Verificando permissão...</h1>
-          <p className="text-gray-300">Aguarde enquanto verificamos seu acesso.</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (acessoNegado) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="bg-zinc-900 p-8 rounded-xl shadow-xl text-center">
-          <h1 className="text-2xl font-bold text-red-500 mb-4">Acesso negado</h1>
-          <p className="text-gray-300 mb-4">Você não tem permissão para acessar esta página.</p>
-          <Button 
-            onClick={() => navigate('/admin')}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            Voltar ao Dashboard
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  // Lista de administradores existentes
+  // TODOS OS HOOKS DEVEM SER DECLARADOS ANTES DE QUALQUER RETORNO CONDICIONAL
+  const [acessoNegado, setAcessoNegado] = useState(false)
   const [adminsExistentes, setAdminsExistentes] = useState([])
   const [loading, setLoading] = useState(true)
-
-  // Dados do formulário
   const [formData, setFormData] = useState({
     nomeCompleto: '',
     email: '',
+    cpf: '',
     senha: '',
     confirmarSenha: ''
   })
-
-  // Estados de controle
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -112,13 +47,25 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [busca, setBusca] = useState('')
 
+  // Verificação de permissão de administrador
   useEffect(() => {
-    fetchAdmins()
+    const usuarioLogado = JSON.parse(localStorage.getItem('usuarioLogado'))
+    if (!usuarioLogado || usuarioLogado.tipo !== 'admin') {
+      setAcessoNegado(true)
+    }
   }, [])
+
+  // Carregar administradores quando componente montar
+  useEffect(() => {
+    if (!acessoNegado) {
+      fetchAdmins()
+    }
+  }, [acessoNegado])
 
   // Buscar administradores existentes
   const fetchAdmins = async () => {
     try {
+      // Buscar apenas na tabela 'funcionarios'
       const { data, error } = await supabase
         .from('funcionarios')
         .select('*')
@@ -126,13 +73,11 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Erro ao buscar administradores:', error)
         setAdminsExistentes([])
       } else {
         setAdminsExistentes(data || [])
       }
     } catch (error) {
-      console.error('Erro ao buscar administradores:', error)
       setAdminsExistentes([])
     } finally {
       setLoading(false)
@@ -140,9 +85,27 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
   }
 
   const handleInputChange = (field, value) => {
+    let processedValue = value
+    
+    // Formatar CPF automaticamente
+    if (field === 'cpf') {
+      // Remover todos os caracteres não numéricos
+      const cpfLimpo = value.replace(/\D/g, '')
+      // Aplicar máscara: 000.000.000-00
+      if (cpfLimpo.length <= 3) {
+        processedValue = cpfLimpo
+      } else if (cpfLimpo.length <= 6) {
+        processedValue = `${cpfLimpo.slice(0, 3)}.${cpfLimpo.slice(3)}`
+      } else if (cpfLimpo.length <= 9) {
+        processedValue = `${cpfLimpo.slice(0, 3)}.${cpfLimpo.slice(3, 6)}.${cpfLimpo.slice(6)}`
+      } else {
+        processedValue = `${cpfLimpo.slice(0, 3)}.${cpfLimpo.slice(3, 6)}.${cpfLimpo.slice(6, 9)}-${cpfLimpo.slice(9, 11)}`
+      }
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: processedValue
     }))
     
     // Limpar erro do campo quando usuário digita
@@ -167,6 +130,19 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
       newErrors.email = 'Email inválido'
     }
 
+    if (!formData.cpf.trim()) {
+      newErrors.cpf = 'CPF é obrigatório'
+    } else {
+      // Remover caracteres não numéricos para validação
+      const cpfLimpo = formData.cpf.replace(/\D/g, '')
+      
+      if (cpfLimpo.length !== 11) {
+        newErrors.cpf = 'CPF deve ter 11 dígitos'
+      } else if (!validarCPF(cpfLimpo)) {
+        newErrors.cpf = 'CPF inválido'
+      }
+    }
+
     if (!formData.senha) {
       newErrors.senha = 'Senha é obrigatória'
     } else if (formData.senha.length < 6) {
@@ -183,6 +159,75 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
     return Object.keys(newErrors).length === 0
   }
 
+  // Função para validar CPF (versão simplificada e confiável)
+  const validarCPF = (cpf) => {
+    // Remover caracteres não numéricos
+    const cpfLimpo = cpf.replace(/\D/g, '')
+    
+    if (cpfLimpo.length !== 11) {
+      return false
+    }
+    
+    // Verificar se todos os dígitos são iguais
+    if (/^(\d)\1{10}$/.test(cpfLimpo)) {
+      return false
+    }
+    
+    // Algoritmo de validação de CPF
+    let soma = 0
+    let peso = 10
+    
+    // Primeiro dígito verificador
+    for (let i = 0; i < 9; i++) {
+      soma += parseInt(cpfLimpo.charAt(i)) * peso
+      peso--
+    }
+    
+    let digito = 11 - (soma % 11)
+    if (digito > 9) digito = 0
+    
+    if (parseInt(cpfLimpo.charAt(9)) !== digito) {
+      return false
+    }
+    
+    // Segundo dígito verificador
+    soma = 0
+    peso = 11
+    
+    for (let i = 0; i < 10; i++) {
+      soma += parseInt(cpfLimpo.charAt(i)) * peso
+      peso--
+    }
+    
+    digito = 11 - (soma % 11)
+    if (digito > 9) digito = 0
+    
+    if (parseInt(cpfLimpo.charAt(10)) !== digito) {
+      return false
+    }
+    
+    return true
+  }
+
+  // Função para testar CPFs conhecidos
+  const testarCPF = () => {
+    const cpfsTeste = [
+      '111.444.777-35', // CPF válido conhecido
+      '123.456.789-09', // CPF inválido
+      '000.000.000-00'  // CPF inválido (todos iguais)
+    ]
+    
+    console.log('🧪 Testando validação de CPF...')
+    cpfsTeste.forEach(cpf => {
+      console.log(`Testando: ${cpf} → ${validarCPF(cpf) ? 'VÁLIDO' : 'INVÁLIDO'}`)
+    })
+  }
+
+  // Testar CPF quando componente montar
+  useEffect(() => {
+    testarCPF()
+  }, [])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -192,9 +237,10 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
 
     setIsLoading(true)
     setErroSupabase('')
+    setShowSuccess(false)
 
     try {
-      // Verificar se email já existe
+      // Verificar se email já existe na tabela funcionarios
       const { data: existingUser, error: checkError } = await supabase
         .from('funcionarios')
         .select('id')
@@ -207,29 +253,44 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
         return
       }
 
-      // Criar novo administrador
+      // Verificar se CPF já existe na tabela funcionarios
+      const cpfLimpo = formData.cpf.replace(/\D/g, '')
+      const { data: existingCPF, error: checkCPFError } = await supabase
+        .from('funcionarios')
+        .select('id')
+        .eq('cpf', cpfLimpo)
+        .single()
+
+      if (existingCPF) {
+        setErroSupabase('Este CPF já está cadastrado')
+        setIsLoading(false)
+        return
+      }
+
+      // Criar novo administrador na tabela funcionarios
       const { data, error } = await supabase
         .from('funcionarios')
         .insert([
           {
             nome: formData.nomeCompleto,
             email: formData.email,
+            cpf: cpfLimpo,
             senha: formData.senha,
-            tipo: 'admin',
-            cargo: 'Administrador'
+            whatsapp: '(00) 00000-0000',
+            cargo: 'Administrador',
+            tipo: 'admin'
           }
         ])
         .select()
 
       if (error) {
-        console.error('Erro ao criar administrador:', error)
         setErroSupabase('Erro ao criar administrador. Tente novamente.')
       } else {
-        console.log('✅ Administrador criado com sucesso:', data)
         setShowSuccess(true)
         setFormData({
           nomeCompleto: '',
           email: '',
+          cpf: '',
           senha: '',
           confirmarSenha: ''
         })
@@ -243,7 +304,6 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
         }, 3000)
       }
     } catch (error) {
-      console.error('Erro inesperado:', error)
       setErroSupabase('Erro inesperado. Tente novamente.')
     } finally {
       setIsLoading(false)
@@ -251,31 +311,21 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
   }
 
   const handleDeleteAdmin = async (admin) => {
-    if (!confirm(`Tem certeza que deseja excluir o administrador ${admin.nome}?`)) {
-      return
-    }
-
     try {
+      // Excluir da tabela funcionarios
       const { error } = await supabase
         .from('funcionarios')
         .delete()
         .eq('id', admin.id)
 
       if (error) {
-        console.error('Erro ao excluir administrador:', error)
-        alert('Erro ao excluir administrador')
-      } else {
-        console.log('✅ Administrador excluído com sucesso')
-        fetchAdmins()
+        return
       }
+      
+      fetchAdmins()
     } catch (error) {
-      console.error('Erro inesperado:', error)
-      alert('Erro inesperado ao excluir administrador')
+      // Erro silencioso
     }
-  }
-
-  const handleVoltar = () => {
-    navigate('/admin')
   }
 
   const adminsFiltrados = adminsExistentes.filter(admin =>
@@ -283,103 +333,126 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
     admin.email.toLowerCase().includes(busca.toLowerCase())
   )
 
+  if (acessoNegado) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="bg-zinc-900 p-8 rounded-xl shadow-xl text-center">
+          <h1 className="text-2xl font-bold text-red-500 mb-4">Acesso negado</h1>
+          <p className="text-gray-300">Você não tem permissão para acessar esta página.</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                <Building2 className="h-5 w-5 text-white" />
+      <header className="border-b border-border bg-card">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/admin')}
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                <Shield className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Cadastro de Administradores
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Gerencie contas de administrador
-                </p>
+                <h1 className="text-2xl font-bold text-foreground">Cadastro de Administradores</h1>
+                <p className="text-sm text-muted-foreground">Gerencie as contas de administrador</p>
               </div>
             </div>
             
             <Button
-              variant="outline"
-              onClick={handleVoltar}
-              className="flex items-center space-x-2"
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
             >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Voltar</span>
+              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
           </div>
         </div>
       </header>
 
       {/* Conteúdo principal */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="container mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Formulário de cadastro */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Shield className="h-5 w-5" />
+                <Shield className="h-5 w-5 text-blue-500" />
                 <span>Novo Administrador</span>
               </CardTitle>
               <CardDescription>
-                Preencha os dados para criar uma nova conta de administrador
+                Cadastre um novo administrador no sistema
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Nome Completo */}
-                <div className="space-y-2">
-                  <Label htmlFor="nomeCompleto">Nome Completo</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="nomeCompleto"
-                      type="text"
-                      value={formData.nomeCompleto}
-                      onChange={(e) => handleInputChange('nomeCompleto', e.target.value)}
-                      className={`pl-10 ${errors.nomeCompleto ? 'border-red-500' : ''}`}
-                      placeholder="Digite o nome completo"
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="nomeCompleto">Nome Completo *</Label>
+                  <Input
+                    id="nomeCompleto"
+                    type="text"
+                    value={formData.nomeCompleto}
+                    onChange={(e) => handleInputChange('nomeCompleto', e.target.value)}
+                    placeholder="Digite o nome completo"
+                    className={errors.nomeCompleto ? 'border-red-500' : ''}
+                  />
                   {errors.nomeCompleto && (
-                    <p className="text-sm text-red-500">{errors.nomeCompleto}</p>
+                    <p className="text-sm text-red-500 mt-1">{errors.nomeCompleto}</p>
                   )}
                 </div>
 
                 {/* Email */}
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange('email', e.target.value)}
-                      className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
-                      placeholder="Digite o email"
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    placeholder="admin@empresa.com"
+                    className={errors.email ? 'border-red-500' : ''}
+                  />
                   {errors.email && (
-                    <p className="text-sm text-red-500">{errors.email}</p>
+                    <p className="text-sm text-red-500 mt-1">{errors.email}</p>
+                  )}
+                </div>
+
+                {/* CPF */}
+                <div>
+                  <Label htmlFor="cpf">CPF *</Label>
+                  <Input
+                    id="cpf"
+                    type="text"
+                    value={formData.cpf}
+                    onChange={(e) => handleInputChange('cpf', e.target.value)}
+                    placeholder="000.000.000-00"
+                    className={errors.cpf ? 'border-red-500' : ''}
+                  />
+                  {errors.cpf && (
+                    <p className="text-sm text-red-500 mt-1">{errors.cpf}</p>
                   )}
                 </div>
 
                 {/* Senha */}
-                <div className="space-y-2">
-                  <Label htmlFor="senha">Senha</Label>
+                <div>
+                  <Label htmlFor="senha">Senha *</Label>
                   <div className="relative">
                     <Input
                       id="senha"
                       type={showPassword ? 'text' : 'password'}
                       value={formData.senha}
                       onChange={(e) => handleInputChange('senha', e.target.value)}
-                      className={`pr-10 ${errors.senha ? 'border-red-500' : ''}`}
                       placeholder="Digite a senha"
+                      className={`pr-10 ${errors.senha ? 'border-red-500' : ''}`}
                     />
                     <Button
                       type="button"
@@ -392,21 +465,21 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
                     </Button>
                   </div>
                   {errors.senha && (
-                    <p className="text-sm text-red-500">{errors.senha}</p>
+                    <p className="text-sm text-red-500 mt-1">{errors.senha}</p>
                   )}
                 </div>
 
                 {/* Confirmar Senha */}
-                <div className="space-y-2">
-                  <Label htmlFor="confirmarSenha">Confirmar Senha</Label>
+                <div>
+                  <Label htmlFor="confirmarSenha">Confirmar Senha *</Label>
                   <div className="relative">
                     <Input
                       id="confirmarSenha"
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={formData.confirmarSenha}
                       onChange={(e) => handleInputChange('confirmarSenha', e.target.value)}
-                      className={`pr-10 ${errors.confirmarSenha ? 'border-red-500' : ''}`}
                       placeholder="Confirme a senha"
+                      className={`pr-10 ${errors.confirmarSenha ? 'border-red-500' : ''}`}
                     />
                     <Button
                       type="button"
@@ -419,7 +492,7 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
                     </Button>
                   </div>
                   {errors.confirmarSenha && (
-                    <p className="text-sm text-red-500">{errors.confirmarSenha}</p>
+                    <p className="text-sm text-red-500 mt-1">{errors.confirmarSenha}</p>
                   )}
                 </div>
 
@@ -427,7 +500,7 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  className="w-full mt-6 bg-blue-600 hover:bg-blue-700"
                 >
                   {isLoading ? (
                     <>
@@ -441,26 +514,26 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
                     </>
                   )}
                 </Button>
+
+                {/* Mensagens de feedback */}
+                {showSuccess && (
+                  <Alert className="mt-4 border-green-500 bg-green-50 dark:bg-green-950/20">
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertDescription className="text-green-700 dark:text-green-300">
+                      Administrador criado com sucesso!
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {erroSupabase && (
+                  <Alert className="mt-4 border-red-500 bg-red-50 dark:bg-red-950/20">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription className="text-red-700 dark:text-red-300">
+                      {erroSupabase}
+                    </AlertDescription>
+                  </Alert>
+                )}
               </form>
-
-              {/* Mensagens de feedback */}
-              {showSuccess && (
-                <Alert className="mt-4 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
-                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <AlertDescription className="text-green-700 dark:text-green-300">
-                    Administrador criado com sucesso!
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {erroSupabase && (
-                <Alert className="mt-4 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
-                  <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                  <AlertDescription className="text-red-700 dark:text-red-300">
-                    {erroSupabase}
-                  </AlertDescription>
-                </Alert>
-              )}
             </CardContent>
           </Card>
 
@@ -468,75 +541,66 @@ const AdminCadastroAdmins = ({ theme, toggleTheme }) => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Users className="h-5 w-5" />
-                <span>Administradores Existentes</span>
+                <Users className="h-5 w-5 text-blue-500" />
+                <span>Administradores Cadastrados</span>
+                <Badge variant="secondary">{adminsExistentes.length}</Badge>
               </CardTitle>
               <CardDescription>
-                Gerencie as contas de administrador do sistema
+                Gerencie os administradores existentes
               </CardDescription>
-            </CardHeader>
-            <CardContent>
+              
               {/* Busca */}
-              <div className="mb-4">
+              <div className="mt-4">
                 <Input
-                  placeholder="Buscar administradores..."
+                  placeholder="Buscar por nome ou e-mail..."
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
-                  className="w-full"
                 />
               </div>
-
-              {/* Lista */}
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {loading ? (
-                  <div className="text-center py-8">
-                    <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
-                    <p className="text-gray-500">Carregando...</p>
-                  </div>
-                ) : adminsFiltrados.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">
-                      {busca ? 'Nenhum administrador encontrado' : 'Nenhum administrador cadastrado'}
-                    </p>
-                  </div>
-                ) : (
-                  adminsFiltrados.map((admin) => (
-                    <div
-                      key={admin.id}
-                      className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                          <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-gray-900 dark:text-white">
-                            {admin.nome}
-                          </h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {admin.email}
-                          </p>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+                  <p className="text-muted-foreground">Carregando administradores...</p>
+                </div>
+              ) : adminsFiltrados.length > 0 ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {adminsFiltrados.map((admin) => (
+                    <div key={admin.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <Shield className="h-4 w-4 text-blue-500" />
+                          <div>
+                            <p className="font-medium text-sm">{admin.nome}</p>
+                            <p className="text-xs text-muted-foreground">{admin.email}</p>
+                            <p className="text-xs text-muted-foreground">{admin.cargo || 'Administrador'}</p>
+                          </div>
                         </div>
                       </div>
-                      
                       <div className="flex items-center space-x-2">
                         <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
                           Admin
                         </Badge>
                         <Button
-                          variant="ghost"
-                          size="icon"
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleDeleteAdmin(admin)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                          className="text-red-500 hover:text-red-700"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Nenhum administrador cadastrado</p>
+                  <p className="text-sm">Cadastre o primeiro administrador usando o formulário ao lado</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
