@@ -204,10 +204,12 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
       newErrors.whatsapp = 'WhatsApp deve ter pelo menos 10 dígitos'
     }
 
+    // Validação condicional para cargo (só se preenchido)
     if (formData.cargo.trim() && formData.cargo.trim().length < 2) {
       newErrors.cargo = 'Cargo deve ter pelo menos 2 caracteres'
     }
 
+    // Validação condicional para email (só se preenchido)
     if (formData.email.trim() && !/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email inválido'
     }
@@ -279,7 +281,11 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!validateForm()) return
+    console.log('Validando formulário...', formData)
+    if (!validateForm()) {
+      console.log('Formulário inválido, erros:', errors)
+      return
+    }
 
     // Verificar limite de funcionários
     if (funcionariosExistentes.length >= empresaConfig.limiteFuncionarios) {
@@ -373,12 +379,14 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         
         setShowSuccess(true)
         setSenhaGerada(senha)
+        setErrors({}) // Limpar erros
         setFormData({
           nomeCompleto: '',
           cpf: '',
           whatsapp: '',
           pix: '',
           cargo: '',
+          tipo: 'comum',
           email: ''
         })
         
