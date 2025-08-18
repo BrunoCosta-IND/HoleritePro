@@ -23,7 +23,7 @@ export const useIOSNotifications = () => {
   useEffect(() => {
     checkIOS()
     checkPermission()
-  }, [checkIOS, checkPermission])
+  }, [])
 
 
 
@@ -76,7 +76,10 @@ export const useIOSNotifications = () => {
   }
 
   const checkPendingNotifications = useCallback(async () => {
-    if (!checkIOS() || !hasPermission) return
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    
+    if (!isIOSDevice || !hasPermission) return
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -106,7 +109,7 @@ export const useIOSNotifications = () => {
     } catch (error) {
       console.error('Erro ao verificar notificações pendentes:', error)
     }
-  }, [checkIOS, hasPermission])
+  }, [hasPermission])
 
   const showLocalNotification = (title, body, data = {}) => {
     if (!hasPermission) return

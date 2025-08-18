@@ -66,13 +66,16 @@ const FuncionarioDashboard = ({ theme, toggleTheme }) => {
     }
     fetchHolerites()
     
-    // Verificar notificações pendentes (especialmente para iOS)
-    if (isIOS) {
+    // Verificar notificações pendentes apenas uma vez para iOS
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    
+    if (isIOSDevice) {
       setTimeout(() => {
         checkPendingNotifications()
       }, 2000) // Aguardar 2 segundos para garantir que tudo carregou
     }
-  }, []) // Removido todas as dependências para executar apenas uma vez
+  }, []) // Executar apenas uma vez na montagem do componente
 
   const handleLogout = () => {
     localStorage.removeItem('funcionarioLogado')
