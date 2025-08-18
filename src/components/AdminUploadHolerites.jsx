@@ -111,16 +111,13 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
       if (!error && data) {
         setFuncionarios(data)
         setErroFuncionarios('')
-        console.log('Total de funcionários carregados do Supabase:', data.length)
       } else {
         setFuncionarios([])
         setErroFuncionarios('Erro ao buscar funcionários: ' + (error?.message || error))
-        console.log('Erro ao buscar funcionários:', error)
       }
     } catch (err) {
       setFuncionarios([])
       setErroFuncionarios('Erro ao buscar funcionários: ' + err.message)
-      console.log('Erro ao buscar funcionários:', err)
     } finally {
       setLoadingFuncionarios(false)
     }
@@ -176,8 +173,6 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
 
   // Função para extrair CPF do nome do arquivo
   function extractCPF(filename) {
-    console.log('Extraindo CPF do arquivo:', filename)
-    
     // Tentar diferentes padrões de CPF
     const patterns = [
       /\b(\d{3}\.?\d{3}\.?\d{3}-?\d{2})\b/,  // 123.456.789-01
@@ -189,12 +184,10 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
       const match = filename.match(pattern)
       if (match) {
         const cpf = match[1].replace(/\D/g, '')
-        console.log('CPF encontrado:', cpf)
         return cpf
       }
     }
     
-    console.log('CPF não encontrado no arquivo:', filename)
     return null
   }
 
@@ -300,7 +293,7 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
               file_url: urlData.publicUrl,
               file_name: arquivo.nome,
               file_size: arquivo.tamanho,
-              status: 'pendente'
+              status: 'disponivel' // Mudança: já salva como disponível
             }])
             .select()
 
@@ -308,11 +301,18 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
             throw new Error(dbError.message)
           }
           
-          // Enviar aviso de holerite pronto
-          await enviarAvisoHoleritePronto(arquivo)
-          
-          // Enviar notificação push
-          await enviarNotificacaoPush(arquivo)
+          // Executar notificações em paralelo (não aguardar)
+          Promise.allSettled([
+            enviarAvisoHoleritePronto(arquivo),
+            enviarNotificacaoPush(arquivo)
+          ]).then(results => {
+            // Log dos resultados (opcional)
+            results.forEach((result, index) => {
+              if (result.status === 'rejected') {
+                console.log(`Notificação ${index} falhou:`, result.reason)
+              }
+            })
+          })
           
           atualizaStatus(arquivo.id, 'sucesso')
         } catch (error) {
@@ -410,47 +410,54 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
         sistema: 'gestao-holerites'
       }
 
-      // Tentativa 1: Requisição direta
+      // Tentativa 1: Requisição direta com timeout
       try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 segundos timeout
+
         const response = await fetch(config.n8n_url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: controller.signal
         })
 
+        clearTimeout(timeoutId)
+
         if (response.ok) {
-          await atualizarStatusHolerite(arquivo.cpf, arquivo.mes, arquivo.ano)
           return
         }
       } catch (error) {
-        // Erro CORS, tentar proxy
+        // Erro CORS ou timeout, tentar proxy
       }
 
-      // Tentativa 2: Proxy CORS
+      // Tentativa 2: Proxy CORS com timeout
       try {
         const proxyUrl = `https://cors-anywhere.herokuapp.com/${config.n8n_url}`
         
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 segundos timeout para proxy
+
         const proxyResponse = await fetch(proxyUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Origin': 'http://localhost:5173'
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: controller.signal
         })
 
+        clearTimeout(timeoutId)
+
         if (proxyResponse.ok) {
-          await atualizarStatusHolerite(arquivo.cpf, arquivo.mes, arquivo.ano)
           return
         }
       } catch (proxyError) {
-        // Erro no proxy
+        // Erro no proxy ou timeout
       }
-      
-      // Mesmo com falha no webhook, atualizar status
-      await atualizarStatusHolerite(arquivo.cpf, arquivo.mes, arquivo.ano)
     } catch (error) {
       console.error('❌ Erro ao enviar aviso de holerite pronto:', error)
       console.error('📋 Stack trace:', error.stack)
@@ -564,23 +571,7 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
     }
   }
 
-  // Função auxiliar para atualizar status
-  const atualizarStatusHolerite = async (cpf, mes, ano) => {
-    try {
-      const { error: updateError } = await supabase
-        .from('holerite')
-        .update({ status: 'disponivel' })
-        .eq('cpf', cpf)
-        .eq('mes', mes)
-        .eq('ano', ano)
 
-      if (updateError) {
-        console.error('Erro ao atualizar status do holerite:', updateError)
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar status:', error)
-    }
-  }
 
   // Buscar holerites existentes
   useEffect(() => {
