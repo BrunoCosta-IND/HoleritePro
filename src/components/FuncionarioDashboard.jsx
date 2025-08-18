@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -72,7 +72,7 @@ const FuncionarioDashboard = ({ theme, toggleTheme }) => {
         checkPendingNotifications()
       }, 2000) // Aguardar 2 segundos para garantir que tudo carregou
     }
-  }, [navigate, isIOS, checkPendingNotifications])
+  }, []) // Removido todas as dependências para executar apenas uma vez
 
   const handleLogout = () => {
     localStorage.removeItem('funcionarioLogado')

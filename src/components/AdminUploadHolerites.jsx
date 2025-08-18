@@ -201,25 +201,11 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files)
     
-    // Logs forçados para debug
-    alert('Arquivos selecionados: ' + files.map(f => f.name).join(', '))
-    console.log('=== DEBUG: ARQUIVOS SELECIONADOS ===')
-    console.log('Arquivos selecionados:', files.map(f => f.name))
-    console.log('Total de arquivos:', files.length)
-    
     const novosArquivos = files.map(file => {
       const id = Math.random().toString(36).substr(2, 9)
       const funcionario = identificarFuncionario(file.name)
       const { mes, ano } = extrairMesAno(file.name)
       const cpf = extractCPF(file.name) || (funcionario ? funcionario.cpf : null)
-      
-      console.log('Processando arquivo:', {
-        nome: file.name,
-        funcionario: funcionario?.nome || 'Não encontrado',
-        cpf: cpf,
-        mes: mes,
-        ano: ano
-      })
       
       return {
         id,
@@ -235,13 +221,6 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
       }
     })
     
-    console.log('Arquivos processados:', novosArquivos.map(a => ({
-      nome: a.nome,
-      cpf: a.cpf,
-      mes: a.mes,
-      ano: a.ano
-    })))
-    
     setArquivos(prev => [...prev, ...novosArquivos])
   }
 
@@ -252,32 +231,22 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
   const handleUpload = async (e) => {
     e.preventDefault()
     
-    // Logs forçados para debug
-    alert('INICIANDO UPLOAD - Arquivos: ' + arquivos.length)
-    console.log('🚀 === INICIANDO UPLOAD ===')
-    console.log('📁 Arquivos para upload:', arquivos.length)
-    console.log('📋 Lista de arquivos:', arquivos.map(a => ({ nome: a.nome, cpf: a.cpf, mes: a.mes, ano: a.ano })))
-    
     if (arquivos.length === 0) {
-      console.error('❌ Nenhum arquivo selecionado')
       setError('Selecione pelo menos um arquivo para upload')
       return
     }
 
     // Prevenir múltiplos cliques
     if (isUploading) {
-      console.warn('⚠️ Upload já em andamento, ignorando clique')
       return
     }
 
     // Proteção adicional contra múltiplos cliques
     setUploadAttempts(prev => prev + 1)
     if (uploadAttempts > 0) {
-      console.warn('⚠️ Tentativa de upload bloqueada, já em andamento')
       return
     }
 
-    console.log('✅ Iniciando processo de upload...')
     setIsUploading(true)
     setError('')
     setUploadProgress({})
@@ -290,20 +259,11 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
     }
 
     try {
-      console.log('🔄 Iniciando upload de', arquivos.length, 'arquivos')
-      
       for (const arquivo of arquivos) {
-        console.log('📄 === PROCESSANDO ARQUIVO ===')
-        console.log('📄 Nome do arquivo:', arquivo.nome)
-        console.log('👤 CPF extraído:', arquivo.cpf)
-        console.log('📅 Mês/Ano:', arquivo.mes + '/' + arquivo.ano)
-        console.log('👨‍💼 Funcionário:', arquivo.funcionario?.nome || 'Não encontrado')
-        
         atualizaStatus(arquivo.id, 'enviando')
 
         try {
           // Gerar nome único para o arquivo
-          console.log('🔧 Gerando nome único...')
           const nomeUnico = generateUniqueFileName(
             arquivo.nome, 
             arquivo.cpf || 'sem_cpf', 
@@ -311,65 +271,26 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
             arquivo.ano
           )
 
-          console.log('✅ Nome único gerado:', nomeUnico)
-
           // Upload para o Supabase Storage
-          console.log('☁️ Iniciando upload para storage...')
-          console.log('📦 Bucket: holerites')
-          console.log('📄 Arquivo:', arquivo.file.name)
-          console.log('📏 Tamanho:', arquivo.file.size, 'bytes')
-          
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('holerites')
             .upload(nomeUnico, arquivo.file)
 
           if (uploadError) {
-            console.error('❌ Erro no upload do storage:', uploadError)
-            console.error('📋 Detalhes do erro:', {
-              message: uploadError.message,
-              statusCode: uploadError.statusCode,
-              error: uploadError.error
-            })
             throw new Error(uploadError.message)
           }
 
-          console.log('✅ Upload para storage concluído')
-          console.log('📊 Dados do upload:', uploadData)
-
           // Obter URL pública do arquivo
-          console.log('🔗 Obtendo URL pública...')
           const { data: urlData } = supabase.storage
             .from('holerites')
             .getPublicUrl(nomeUnico)
 
-          console.log('✅ URL pública obtida:', urlData.publicUrl)
-          console.log('🔗 Dados da URL:', urlData)
-
-          // Inserir registro no banco de dados
-          console.log('💾 === INSERINDO NO BANCO ===')
-          console.log('📊 Dados para inserção:', {
-            cpf: arquivo.cpf,
-            mes: arquivo.mes,
-            ano: arquivo.ano,
-            file_url: urlData.publicUrl,
-            file_name: arquivo.nome,
-            file_size: arquivo.tamanho,
-            status: 'pendente'
-          })
-
           // Verificar se os dados estão corretos
-          console.log('🔍 Validando dados...')
           if (!arquivo.cpf || !arquivo.mes || !arquivo.ano) {
-            console.error('❌ Dados inválidos para inserção:', {
-              cpf: arquivo.cpf,
-              mes: arquivo.mes,
-              ano: arquivo.ano
-            })
             throw new Error('Dados inválidos para inserção no banco')
           }
-          console.log('✅ Dados válidos para inserção')
 
-          console.log('🗄️ Executando INSERT no banco...')
+          // Inserir registro no banco de dados
           const { data: insertData, error: dbError } = await supabase
             .from('holerite')
             .insert([{
@@ -384,47 +305,21 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
             .select()
 
           if (dbError) {
-            console.error('❌ Erro ao inserir no banco:', dbError)
-            console.error('📋 Detalhes completos do erro:', {
-              code: dbError.code,
-              message: dbError.message,
-              details: dbError.details,
-              hint: dbError.hint,
-              statusCode: dbError.statusCode
-            })
             throw new Error(dbError.message)
           }
-
-          console.log('✅ Registro inserido no banco com sucesso!')
-          console.log('📊 Dados retornados:', insertData)
           
           // Enviar aviso de holerite pronto
-          console.log('📢 === ENVIANDO WEBHOOK ===')
           await enviarAvisoHoleritePronto(arquivo)
           
           // Enviar notificação push
-          console.log('📱 === ENVIANDO NOTIFICAÇÃO PUSH ===')
           await enviarNotificacaoPush(arquivo)
           
-          console.log('✅ Arquivo processado com sucesso!')
           atualizaStatus(arquivo.id, 'sucesso')
         } catch (error) {
-          console.error('❌ Erro no processamento do arquivo:', arquivo.nome)
-          console.error('📋 Detalhes do erro:', {
-            message: error.message,
-            stack: error.stack,
-            arquivo: {
-              nome: arquivo.nome,
-              cpf: arquivo.cpf,
-              mes: arquivo.mes,
-              ano: arquivo.ano
-            }
-          })
           atualizaStatus(arquivo.id, 'erro', error.message)
         }
       }
 
-      console.log('🎉 === UPLOAD CONCLUÍDO COM SUCESSO ===')
       setShowSuccess(true)
       setArquivos([])
       
@@ -434,11 +329,8 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
       }, 5000)
 
     } catch (error) {
-      console.error('❌ Erro geral no upload:', error)
-      console.error('📋 Stack trace completo:', error.stack)
       setError('Erro geral no upload: ' + error.message)
     } finally {
-      console.log('🏁 Finalizando upload, resetando estado')
       setIsUploading(false)
       setUploadAttempts(0)
     }
@@ -465,10 +357,7 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
   // Função para enviar aviso de holerite pronto
   const enviarAvisoHoleritePronto = async (arquivo) => {
     try {
-      console.log('📢 Enviando aviso de holerite pronto para funcionário:', arquivo.cpf)
-      
       // Buscar dados do funcionário
-      console.log('👤 Buscando dados do funcionário...')
       const { data: funcionario, error: funcError } = await supabase
         .from('funcionarios')
         .select('*')
@@ -476,15 +365,10 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
         .single()
 
       if (funcError || !funcionario) {
-        console.error('❌ Funcionário não encontrado:', arquivo.cpf)
-        console.error('📋 Erro na busca:', funcError)
         throw new Error('Funcionário não encontrado')
       }
 
-      console.log('✅ Funcionário encontrado:', funcionario.nome)
-
       // Verificar configurações do webhook
-      console.log('⚙️ Buscando configurações do webhook...')
       const { data: webhookConfig, error: webhookError } = await supabase
         .from('webhook_config')
         .select('*')
@@ -492,34 +376,23 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
         .limit(1)
 
       if (webhookError) {
-        console.error('❌ Erro ao buscar configurações do webhook:', webhookError)
         return
       }
 
       if (!webhookConfig || webhookConfig.length === 0) {
-        console.log('⚠️ Nenhuma configuração de webhook encontrada')
         return
       }
 
       const config = webhookConfig[0]
-      console.log('✅ Configurações do webhook encontradas:', {
-        ativo: config.ativo,
-        holerite_enviado: config.holerite_enviado,
-        n8n_url: config.n8n_url ? 'Configurada' : 'Não configurada'
-      })
       
       // Verificar se webhook está ativo e se evento de holerite enviado está habilitado
       if (!config.ativo || !config.holerite_enviado) {
-        console.log('⚠️ Webhook inativo ou evento de holerite enviado desabilitado')
         return
       }
 
       if (!config.n8n_url) {
-        console.log('⚠️ URL do webhook não configurada')
         return
       }
-
-      console.log('📤 Enviando aviso de holerite pronto...')
       
       const payload = {
         evento: 'holerite_pronto',
@@ -537,10 +410,7 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
         sistema: 'gestao-holerites'
       }
 
-      console.log('📦 Payload do aviso:', payload)
-
       // Tentativa 1: Requisição direta
-      console.log('🔄 Tentativa 1: Requisição direta')
       try {
         const response = await fetch(config.n8n_url, {
           method: 'POST',
@@ -550,25 +420,15 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
           body: JSON.stringify(payload)
         })
 
-        console.log('📡 Resposta do webhook:', {
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok
-        })
-
         if (response.ok) {
-          console.log('✅ Aviso de holerite pronto enviado com sucesso')
           await atualizarStatusHolerite(arquivo.cpf, arquivo.mes, arquivo.ano)
           return
-        } else {
-          console.log('❌ Erro na requisição direta:', response.status, response.statusText)
         }
       } catch (error) {
-        console.log('❌ Erro CORS na requisição direta:', error.message)
+        // Erro CORS, tentar proxy
       }
 
       // Tentativa 2: Proxy CORS
-      console.log('🔄 Tentativa 2: Proxy CORS')
       try {
         const proxyUrl = `https://cors-anywhere.herokuapp.com/${config.n8n_url}`
         
@@ -582,19 +442,12 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
         })
 
         if (proxyResponse.ok) {
-          console.log('✅ Aviso enviado com sucesso via proxy!')
           await atualizarStatusHolerite(arquivo.cpf, arquivo.mes, arquivo.ano)
           return
-        } else {
-          console.log('❌ Erro no proxy:', proxyResponse.status)
         }
       } catch (proxyError) {
-        console.log('❌ Erro no proxy CORS:', proxyError.message)
+        // Erro no proxy
       }
-
-      // Se todas as tentativas falharam
-      console.log('❌ Todas as tentativas de webhook falharam')
-      console.log('💡 Dica: Configure CORS no servidor n8n ou use um proxy')
       
       // Mesmo com falha no webhook, atualizar status
       await atualizarStatusHolerite(arquivo.cpf, arquivo.mes, arquivo.ano)
@@ -607,8 +460,6 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
   // Função para enviar notificação push
   const enviarNotificacaoPush = async (arquivo) => {
     try {
-      console.log('📱 Enviando notificação push para funcionário:', arquivo.cpf)
-      
       // Buscar dados do funcionário
       const { data: funcionario, error: funcError } = await supabase
         .from('funcionarios')
@@ -617,11 +468,8 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
         .single()
 
       if (funcError || !funcionario) {
-        console.error('❌ Funcionário não encontrado para notificação push:', arquivo.cpf)
         return
       }
-
-      console.log('✅ Funcionário encontrado para notificação:', funcionario.nome)
 
       // Buscar subscription do funcionário
       const { data: subscription, error: subError } = await supabase
@@ -631,7 +479,6 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
         .single()
 
       if (subError || !subscription) {
-        console.log('⚠️ Funcionário não tem subscription de notificação push:', funcionario.nome)
         return
       }
 
@@ -639,13 +486,10 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
       const isIOS = subscription.platform === 'ios'
       
       if (isIOS) {
-        console.log('📱 iOS detectado - salvando notificação pendente')
         // Para iOS, salvar notificação pendente para ser mostrada quando o app abrir
         await savePendingNotification(funcionario.id, payload)
         return
       }
-
-      console.log('✅ Subscription encontrada, enviando notificação push...')
 
       // Preparar payload da notificação
       const payload = {
@@ -688,14 +532,11 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
       })
 
       if (pushError) {
-        console.error('❌ Erro ao enviar notificação push:', pushError)
-      } else {
-        console.log('✅ Notificação push enviada com sucesso!')
+        console.error('Erro ao enviar notificação push:', pushError)
       }
 
     } catch (error) {
-      console.error('❌ Erro ao enviar notificação push:', error)
-      console.error('📋 Stack trace:', error.stack)
+      console.error('Erro ao enviar notificação push:', error)
     }
   }
 
@@ -716,19 +557,16 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
         .insert(notificationData)
 
       if (error) {
-        console.error('❌ Erro ao salvar notificação pendente:', error)
-      } else {
-        console.log('✅ Notificação pendente salva com sucesso para iOS')
+        console.error('Erro ao salvar notificação pendente:', error)
       }
     } catch (error) {
-      console.error('❌ Erro ao salvar notificação pendente:', error)
+      console.error('Erro ao salvar notificação pendente:', error)
     }
   }
 
   // Função auxiliar para atualizar status
   const atualizarStatusHolerite = async (cpf, mes, ano) => {
     try {
-      console.log('🔄 Atualizando status do holerite...')
       const { error: updateError } = await supabase
         .from('holerite')
         .update({ status: 'disponivel' })
@@ -737,12 +575,10 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
         .eq('ano', ano)
 
       if (updateError) {
-        console.error('❌ Erro ao atualizar status do holerite:', updateError)
-      } else {
-        console.log('✅ Status do holerite atualizado para disponivel')
+        console.error('Erro ao atualizar status do holerite:', updateError)
       }
     } catch (error) {
-      console.error('❌ Erro ao atualizar status:', error)
+      console.error('Erro ao atualizar status:', error)
     }
   }
 
@@ -758,8 +594,6 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
 
         if (error) {
           console.error('Erro ao buscar holerites:', error)
-        } else {
-          console.log('Holerites carregados:', data)
         }
       } catch (error) {
         console.error('Erro ao buscar holerites:', error)

@@ -1,31 +1,33 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/utils'
 
 export const useIOSNotifications = () => {
   const [hasPermission, setHasPermission] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
 
-  useEffect(() => {
-    checkIOS()
-    checkPermission()
-  }, [])
-
-  const checkIOS = () => {
+  const checkIOS = useCallback(() => {
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
     setIsIOS(ios)
     return ios
-  }
+  }, [])
 
-  const checkPermission = async () => {
+  const checkPermission = useCallback(async () => {
     if (!checkIOS()) return false
     
     const permission = await Notification.permission
     setHasPermission(permission === 'granted')
     return permission === 'granted'
-  }
+  }, [checkIOS])
 
-  const requestPermission = async () => {
+  useEffect(() => {
+    checkIOS()
+    checkPermission()
+  }, [checkIOS, checkPermission])
+
+
+
+  const requestPermission = useCallback(async () => {
     if (!checkIOS()) {
       throw new Error('Este dispositivo não é iOS')
     }
@@ -43,7 +45,7 @@ export const useIOSNotifications = () => {
       console.error('Erro ao solicitar permissão iOS:', error)
       throw error
     }
-  }
+  }, [checkIOS])
 
   const saveIOSPermission = async () => {
     try {
@@ -67,15 +69,13 @@ export const useIOSNotifications = () => {
 
       if (error) {
         console.error('Erro ao salvar permissão iOS:', error)
-      } else {
-        console.log('Permissão iOS salva com sucesso')
       }
     } catch (error) {
       console.error('Erro ao salvar permissão iOS:', error)
     }
   }
 
-  const checkPendingNotifications = async () => {
+  const checkPendingNotifications = useCallback(async () => {
     if (!checkIOS() || !hasPermission) return
 
     try {
@@ -106,7 +106,7 @@ export const useIOSNotifications = () => {
     } catch (error) {
       console.error('Erro ao verificar notificações pendentes:', error)
     }
-  }
+  }, [checkIOS, hasPermission])
 
   const showLocalNotification = (title, body, data = {}) => {
     if (!hasPermission) return

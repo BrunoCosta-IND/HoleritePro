@@ -50,7 +50,6 @@ export const usePushNotifications = () => {
                       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
         
         if (isIOS) {
-          console.log('iOS detectado - usando notificações locais')
           // Para iOS, apenas salvar que o usuário permitiu notificações
           await saveIOSNotificationPermission()
         } else {
@@ -181,7 +180,6 @@ export const usePushNotifications = () => {
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) {
-        console.warn('Usuário não autenticado, não é possível salvar permissão iOS')
         return
       }
 
@@ -203,8 +201,6 @@ export const usePushNotifications = () => {
         console.error('Erro ao salvar permissão iOS:', error)
         throw error
       }
-
-      console.log('Permissão iOS salva com sucesso')
     } catch (error) {
       console.error('Erro ao salvar permissão iOS no banco:', error)
       throw error

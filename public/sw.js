@@ -114,7 +114,7 @@ self.addEventListener('push', (event) => {
         actions: pushData.actions || options.actions
       };
     } catch (error) {
-      console.log('Erro ao processar dados da notificação:', error);
+      // Erro ao processar dados da notificação
     }
   }
 
