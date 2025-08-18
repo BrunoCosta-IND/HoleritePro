@@ -62,6 +62,10 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
   // Adicionar estados para feedback geral
   const [uploadFeedback, setUploadFeedback] = useState(null)
 
+  // Cache para dados de funcionários e configurações
+  const [funcionariosCache, setFuncionariosCache] = useState({})
+  const [webhookConfigCache, setWebhookConfigCache] = useState(null)
+
   useEffect(() => {
     carregarConfiguracoes()
     fetchFuncionarios()
@@ -111,6 +115,13 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
       if (!error && data) {
         setFuncionarios(data)
         setErroFuncionarios('')
+        
+        // Criar cache para busca rápida por CPF
+        const cache = {}
+        data.forEach(func => {
+          cache[func.cpf] = func
+        })
+        setFuncionariosCache(cache)
       } else {
         setFuncionarios([])
         setErroFuncionarios('Erro ao buscar funcionários: ' + (error?.message || error))
@@ -265,10 +276,24 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
             arquivo.ano
           )
 
-          // Upload para o Supabase Storage
-          const { data: uploadData, error: uploadError } = await supabase.storage
+          // Verificar se os dados estão corretos
+          if (!arquivo.cpf || !arquivo.mes || !arquivo.ano) {
+            throw new Error('Dados inválidos para inserção no banco')
+          }
+
+          // Upload para o Supabase Storage (com timeout)
+          const uploadPromise = supabase.storage
             .from('holerites')
             .upload(nomeUnico, arquivo.file)
+
+          const uploadTimeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout no upload')), 30000)
+          )
+
+          const { data: uploadData, error: uploadError } = await Promise.race([
+            uploadPromise,
+            uploadTimeout
+          ])
 
           if (uploadError) {
             throw new Error(uploadError.message)
@@ -278,11 +303,6 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
           const { data: urlData } = supabase.storage
             .from('holerites')
             .getPublicUrl(nomeUnico)
-
-          // Verificar se os dados estão corretos
-          if (!arquivo.cpf || !arquivo.mes || !arquivo.ano) {
-            throw new Error('Dados inválidos para inserção no banco')
-          }
 
           // Inserir registro no banco de dados
           const { data: insertData, error: dbError } = await supabase
@@ -302,15 +322,17 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
             throw new Error(dbError.message)
           }
           
-          // Executar notificações em paralelo (não aguardar)
-          Promise.allSettled([
-            enviarAvisoHoleritePronto(arquivo),
-            enviarNotificacaoPush(arquivo)
-          ]).then(results => {
-            results.forEach((result, index) => {
-              if (result.status === 'rejected') {
-                console.log(`Notificação ${index} falhou:`, result.reason)
-              }
+          // Executar notificações em background (não aguardar)
+          setImmediate(() => {
+            Promise.allSettled([
+              enviarAvisoHoleritePronto(arquivo),
+              enviarNotificacaoPush(arquivo)
+            ]).then(results => {
+              results.forEach((result, index) => {
+                if (result.status === 'rejected') {
+                  console.log(`Notificação ${index} falhou:`, result.reason)
+                }
+              })
             })
           })
           
@@ -375,33 +397,45 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
   // Função para enviar aviso de holerite pronto
   const enviarAvisoHoleritePronto = async (arquivo) => {
     try {
-      // Buscar dados do funcionário
-      const { data: funcionario, error: funcError } = await supabase
-        .from('funcionarios')
-        .select('*')
-        .eq('cpf', arquivo.cpf)
-        .single()
+      // Usar cache para dados do funcionário
+      let funcionario = funcionariosCache[arquivo.cpf]
+      
+      if (!funcionario) {
+        // Se não estiver no cache, buscar no banco
+        const { data: funcData, error: funcError } = await supabase
+          .from('funcionarios')
+          .select('*')
+          .eq('cpf', arquivo.cpf)
+          .single()
 
-      if (funcError || !funcionario) {
-        throw new Error('Funcionário não encontrado')
+        if (funcError || !funcData) {
+          throw new Error('Funcionário não encontrado')
+        }
+        funcionario = funcData
       }
 
-      // Verificar configurações do webhook
-      const { data: webhookConfig, error: webhookError } = await supabase
-        .from('webhook_config')
-        .select('*')
-        .order('updated_at', { ascending: false })
-        .limit(1)
+      // Usar cache para configurações do webhook
+      let config = webhookConfigCache
+      
+      if (!config) {
+        // Se não estiver no cache, buscar no banco
+        const { data: webhookConfig, error: webhookError } = await supabase
+          .from('webhook_config')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .limit(1)
 
-      if (webhookError) {
-        return
+        if (webhookError) {
+          return
+        }
+
+        if (!webhookConfig || webhookConfig.length === 0) {
+          return
+        }
+
+        config = webhookConfig[0]
+        setWebhookConfigCache(config) // Salvar no cache
       }
-
-      if (!webhookConfig || webhookConfig.length === 0) {
-        return
-      }
-
-      const config = webhookConfig[0]
       
       // Verificar se webhook está ativo e se evento de holerite enviado está habilitado
       if (!config.ativo || !config.holerite_enviado) {
@@ -485,15 +519,21 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
   // Função para enviar notificação push
   const enviarNotificacaoPush = async (arquivo) => {
     try {
-      // Buscar dados do funcionário
-      const { data: funcionario, error: funcError } = await supabase
-        .from('funcionarios')
-        .select('*')
-        .eq('cpf', arquivo.cpf)
-        .single()
+      // Usar cache para dados do funcionário
+      let funcionario = funcionariosCache[arquivo.cpf]
+      
+      if (!funcionario) {
+        // Se não estiver no cache, buscar no banco
+        const { data: funcData, error: funcError } = await supabase
+          .from('funcionarios')
+          .select('*')
+          .eq('cpf', arquivo.cpf)
+          .single()
 
-      if (funcError || !funcionario) {
-        return
+        if (funcError || !funcData) {
+          return
+        }
+        funcionario = funcData
       }
 
       // Buscar subscription do funcionário
