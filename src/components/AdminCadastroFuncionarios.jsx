@@ -77,6 +77,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
   const [showSuccess, setShowSuccess] = useState(false)
   const [showLimitAlert, setShowLimitAlert] = useState(false)
   const [senhaGerada, setSenhaGerada] = useState('')
+  const [emailGerado, setEmailGerado] = useState('')
   const [erroSupabase, setErroSupabase] = useState('')
   const [senhaResetada, setSenhaResetada] = useState('')
   const [emailResetado, setEmailResetado] = useState('')
@@ -224,6 +225,12 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
     return senha
   }
 
+  const gerarEmailAleatorio = () => {
+    const timestamp = Date.now()
+    const random = Math.random().toString(36).substring(2, 8)
+    return `funcionario_${timestamp}_${random}@eltondistribuidora.com`
+  }
+
   // Função para enviar webhook quando funcionário for cadastrado
   const enviarWebhookFuncionarioCadastrado = async (funcionario) => {
     try {
@@ -327,6 +334,11 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         }
       }
 
+      // Gerar e-mail aleatório se não foi preenchido
+      const emailFinal = formData.email.trim() 
+        ? formData.email.trim().toLowerCase() 
+        : gerarEmailAleatorio()
+
       // Preparar dados para inserção
       const dadosFuncionario = {
         nome: formData.nomeCompleto.trim(),
@@ -334,7 +346,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         whatsapp: formData.whatsapp,
         pix: formData.pix.trim(),
         cargo: formData.cargo.trim() || null,
-        email: formData.email.trim() ? formData.email.trim().toLowerCase() : null,
+        email: emailFinal,
         senha: senha,
         tipo: 'comum',
         ativo: true
@@ -380,6 +392,11 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         setShowSuccess(true)
         setSenhaGerada(senha)
         setErrors({}) // Limpar erros
+        
+        // Mostrar e-mail gerado se foi criado automaticamente
+        const emailGeradoTemp = !formData.email.trim() ? emailFinal : null
+        setEmailGerado(emailGeradoTemp || '')
+        
         setFormData({
           nomeCompleto: '',
           cpf: '',
@@ -625,7 +642,15 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
                   <Alert className="mt-4 border-green-500 bg-green-50 dark:bg-green-950/20">
                     <CheckCircle className="h-4 w-4" />
                     <AlertDescription className="text-green-700 dark:text-green-300">
-                      Funcionário cadastrado com sucesso! Senha gerada: <strong>{senhaGerada}</strong>
+                      Funcionário cadastrado com sucesso! 
+                      <br />
+                      Senha gerada: <strong>{senhaGerada}</strong>
+                      {emailGerado && (
+                        <>
+                          <br />
+                          E-mail gerado: <strong>{emailGerado}</strong>
+                        </>
+                      )}
                     </AlertDescription>
                   </Alert>
                 )}
