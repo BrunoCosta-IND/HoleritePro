@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,6 +20,30 @@ const LoginUnificado = ({ theme, toggleTheme }) => {
   const [lembrar, setLembrar] = useState(false)
   const [msg, setMsg] = useState('')
   const navigate = useNavigate()
+  // Pré-carregar credenciais salvas e sessão existente
+  useEffect(() => {
+    // Se já existe usuário logado, redirecionar
+    const usuarioLogado = localStorage.getItem('usuarioLogado')
+    if (usuarioLogado) {
+      const dados = JSON.parse(usuarioLogado)
+      if (dados?.tipo === 'admin') {
+        navigate('/admin')
+      } else if (dados?.tipo === 'funcionario') {
+        navigate('/funcionario-dashboard')
+      }
+      return
+    }
+
+    // Preencher formulário com credenciais lembradas
+    const lembrado = localStorage.getItem('loginUnificadoLembrar')
+    if (lembrado) {
+      try {
+        const { usuario, senha } = JSON.parse(lembrado)
+        setFormData({ usuario: usuario || '', senha: senha || '' })
+        setLembrar(true)
+      } catch {}
+    }
+  }, [navigate])
   
   // Hook para notificações push
   const { requestPermission, isSupported } = usePushNotifications()
