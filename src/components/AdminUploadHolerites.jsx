@@ -252,7 +252,8 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
     }
 
     try {
-      for (const arquivo of arquivos) {
+      // Processar todos os arquivos em paralelo
+      const uploadPromises = arquivos.map(async (arquivo) => {
         atualizaStatus(arquivo.id, 'enviando')
 
         try {
@@ -293,7 +294,7 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
               file_url: urlData.publicUrl,
               file_name: arquivo.nome,
               file_size: arquivo.tamanho,
-              status: 'disponivel' // Mudança: já salva como disponível
+              status: 'disponivel'
             }])
             .select()
 
@@ -306,7 +307,6 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
             enviarAvisoHoleritePronto(arquivo),
             enviarNotificacaoPush(arquivo)
           ]).then(results => {
-            // Log dos resultados (opcional)
             results.forEach((result, index) => {
               if (result.status === 'rejected') {
                 console.log(`Notificação ${index} falhou:`, result.reason)
@@ -315,18 +315,36 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
           })
           
           atualizaStatus(arquivo.id, 'sucesso')
+          return { success: true, arquivo }
         } catch (error) {
           atualizaStatus(arquivo.id, 'erro', error.message)
+          return { success: false, arquivo, error: error.message }
         }
-      }
+      })
 
-      setShowSuccess(true)
-      setArquivos([])
+      // Aguardar todos os uploads terminarem
+      const results = await Promise.allSettled(uploadPromises)
       
-      // Limpar após 5 segundos
-      setTimeout(() => {
-        setShowSuccess(false)
-      }, 5000)
+      // Verificar se todos foram bem-sucedidos
+      const allSuccess = results.every(result => 
+        result.status === 'fulfilled' && result.value.success
+      )
+
+      if (allSuccess) {
+        setShowSuccess(true)
+        setArquivos([])
+        
+        // Limpar após 5 segundos
+        setTimeout(() => {
+          setShowSuccess(false)
+        }, 5000)
+      } else {
+        // Mostrar erro se algum falhou
+        const failedResults = results.filter(result => 
+          result.status === 'rejected' || !result.value.success
+        )
+        setError(`Erro em ${failedResults.length} arquivo(s)`)
+      }
 
     } catch (error) {
       setError('Erro geral no upload: ' + error.message)
