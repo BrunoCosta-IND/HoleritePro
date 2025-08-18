@@ -204,13 +204,11 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
       newErrors.whatsapp = 'WhatsApp deve ter pelo menos 10 dígitos'
     }
 
-    if (!formData.cargo.trim()) {
-      newErrors.cargo = 'Cargo é obrigatório'
+    if (formData.cargo.trim() && formData.cargo.trim().length < 2) {
+      newErrors.cargo = 'Cargo deve ter pelo menos 2 caracteres'
     }
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email é obrigatório'
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    if (formData.email.trim() && !/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email inválido'
     }
 
@@ -308,17 +306,19 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         return
       }
 
-      // Verificar se email já existe
-      const { data: emailExistente, error: emailCheckError } = await supabase
-        .from('funcionarios')
-        .select('email')
-        .eq('email', formData.email)
-        .single()
+      // Verificar se email já existe (apenas se foi preenchido)
+      if (formData.email.trim()) {
+        const { data: emailExistente, error: emailCheckError } = await supabase
+          .from('funcionarios')
+          .select('email')
+          .eq('email', formData.email)
+          .single()
 
-      if (emailExistente) {
-        setErrors({ email: 'E-mail já cadastrado' })
-        setIsLoading(false)
-        return
+        if (emailExistente) {
+          setErrors({ email: 'E-mail já cadastrado' })
+          setIsLoading(false)
+          return
+        }
       }
 
       // Preparar dados para inserção
@@ -327,8 +327,8 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         cpf: formData.cpf.replace(/\D/g, ''), // Remove formatação
         whatsapp: formData.whatsapp,
         pix: formData.pix.trim(),
-        cargo: formData.cargo.trim(),
-        email: formData.email.trim().toLowerCase(),
+        cargo: formData.cargo.trim() || null,
+        email: formData.email.trim() ? formData.email.trim().toLowerCase() : null,
         senha: senha,
         tipo: 'comum',
         ativo: true
@@ -519,7 +519,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
 
                 {/* E-mail */}
                 <div>
-                  <Label htmlFor="email">E-mail *</Label>
+                  <Label htmlFor="email">E-mail</Label>
                   <Input
                     id="email"
                     type="email"
@@ -535,7 +535,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
 
                 {/* Cargo */}
                 <div>
-                  <Label htmlFor="cargo">Cargo *</Label>
+                  <Label htmlFor="cargo">Cargo</Label>
                   <Input
                     id="cargo"
                     value={formData.cargo}
