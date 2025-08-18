@@ -1,10 +1,9 @@
-const CACHE_NAME = 'holerites-v1';
+const CACHE_NAME = 'holerites-v2';
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/static/js/bundle.js',
-  '/static/css/main.css'
+  '/logo.png'
 ];
 
 // Instalação do Service Worker
@@ -19,6 +18,11 @@ self.addEventListener('install', (event) => {
 
 // Interceptação de requisições
 self.addEventListener('fetch', (event) => {
+  // Não interceptar requisições para a API do Supabase
+  if (event.request.url.includes('supabase.co')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -44,6 +48,12 @@ self.addEventListener('fetch', (event) => {
               });
 
             return response;
+          })
+          .catch(() => {
+            // Se falhar na rede, retorna página offline
+            if (event.request.destination === 'document') {
+              return caches.match('/index.html');
+            }
           });
       })
   );
@@ -64,12 +74,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Notificações push (opcional)
+// Notificações push
 self.addEventListener('push', (event) => {
-  const options = {
-    body: event.data ? event.data.text() : 'Novo holerite disponível!',
-    icon: '/icon-192x192.png',
-    badge: '/icon-192x192.png',
+  let options = {
+    body: 'Novo holerite disponível!',
+    icon: '/logo.png',
+    badge: '/logo.png',
     vibrate: [100, 50, 100],
     data: {
       dateOfArrival: Date.now(),
@@ -77,20 +87,39 @@ self.addEventListener('push', (event) => {
     },
     actions: [
       {
-        action: 'explore',
-        title: 'Ver holerite',
-        icon: '/icon-192x192.png'
+        action: 'view',
+        title: 'Ver Holerite',
+        icon: '/logo.png'
       },
       {
-        action: 'close',
+        action: 'dismiss',
         title: 'Fechar',
-        icon: '/icon-192x192.png'
+        icon: '/logo.png'
       }
     ]
   };
 
+  // Se há dados na notificação, usar eles
+  if (event.data) {
+    try {
+      const pushData = event.data.json();
+      options = {
+        ...options,
+        title: pushData.title || 'Portal de Holerites',
+        body: pushData.body || options.body,
+        data: {
+          ...options.data,
+          ...pushData.data
+        },
+        actions: pushData.actions || options.actions
+      };
+    } catch (error) {
+      console.log('Erro ao processar dados da notificação:', error);
+    }
+  }
+
   event.waitUntil(
-    self.registration.showNotification('Portal de Holerites', options)
+    self.registration.showNotification(options.title || 'Portal de Holerites', options)
   );
 });
 
@@ -98,7 +127,16 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  if (event.action === 'explore') {
+  if (event.action === 'view') {
+    // Abrir o dashboard do funcionário
+    event.waitUntil(
+      clients.openWindow('/funcionario-dashboard')
+    );
+  } else if (event.action === 'dismiss') {
+    // Apenas fechar a notificação
+    event.notification.close();
+  } else {
+    // Clique na notificação sem ação específica
     event.waitUntil(
       clients.openWindow('/funcionario-dashboard')
     );

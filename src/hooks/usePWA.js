@@ -82,8 +82,8 @@ export const usePWA = () => {
   const sendNotification = (title, options = {}) => {
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(title, {
-        icon: '/icon-192x192.png',
-        badge: '/icon-192x192.png',
+        icon: '/logo.png',
+        badge: '/logo.png',
         ...options
       })
     }

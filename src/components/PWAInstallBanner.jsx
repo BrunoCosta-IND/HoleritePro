@@ -61,7 +61,8 @@ const PWAInstallBanner = () => {
                 <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs">
                   <p><strong>Debug PWA:</strong></p>
                   <p>Installable: {isInstallable ? 'Sim' : 'Não'}</p>
-                  <p>User Agent: {navigator.userAgent}</p>
+                  <p>Service Worker: {'serviceWorker' in navigator ? 'Sim' : 'Não'}</p>
+                  <p>Push Manager: {'PushManager' in window ? 'Sim' : 'Não'}</p>
                   <p>Standalone: {window.matchMedia('(display-mode: standalone)').matches ? 'Sim' : 'Não'}</p>
                 </div>
               )}

@@ -12,31 +12,18 @@ import FuncionarioHolerite from './components/FuncionarioHolerite'
 import LoginUnificado from './components/AdminLogin'
 import PWAInstallBanner from './components/PWAInstallBanner'
 import { startKeepAlive } from './lib/keepAlive'
+import { useSystemTheme } from './hooks/useSystemTheme'
 import './App.css'
 
 function App() {
-  const [theme, setTheme] = useState('dark')
+  const { theme, setTheme, isDark } = useSystemTheme()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userType, setUserType] = useState(null)
 
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark'
     setTheme(newTheme)
-    localStorage.setItem('theme', newTheme)
   }
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'dark'
-    setTheme(savedTheme)
-  }, [])
-
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }, [theme])
 
   // Manter Supabase ativo (apenas em produção)
   useEffect(() => {

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Ícones - Portal de Holerites</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .preview {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        .icon-preview {
+            text-align: center;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .icon-preview img {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 Gerador de Ícones - Portal de Holerites</h1>
+    
+    <div class="card">
+        <h2>📁 Upload do Logo</h2>
+        <input type="file" id="logoInput" accept="image/*" />
+        <p>Selecione seu arquivo PNG para gerar os ícones automaticamente</p>
+    </div>
+
+    <div class="card">
+        <h2>👁️ Preview dos Ícones</h2>
+        <div class="preview" id="preview">
+            <div class="icon-preview">
+                <h4>Favicon (32x32)</h4>
+                <img id="favicon" src="/logo.png" width="32" height="32" alt="Favicon">
+            </div>
+            <div class="icon-preview">
+                <h4>PWA (192x192)</h4>
+                <img id="pwa192" src="/logo.png" width="192" height="192" alt="PWA 192">
+            </div>
+            <div class="icon-preview">
+                <h4>PWA (512x512)</h4>
+                <img id="pwa512" src="/logo.png" width="512" height="512" alt="PWA 512">
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>💾 Download dos Ícones</h2>
+        <button onclick="downloadFavicon()">Download Favicon (32x32)</button>
+        <button onclick="downloadPWA192()">Download PWA (192x192)</button>
+        <button onclick="downloadPWA512()">Download PWA (512x512)</button>
+        <button onclick="downloadAll()">Download Todos</button>
+    </div>
+
+    <div class="card">
+        <h2>📋 Instruções</h2>
+        <ol>
+            <li>Faça upload do seu logo PNG</li>
+            <li>Visualize os diferentes tamanhos gerados</li>
+            <li>Baixe os ícones que desejar</li>
+            <li>Substitua o arquivo <code>/public/logo.png</code> pelo seu logo</li>
+            <li>Reinicie o servidor para aplicar as mudanças</li>
+        </ol>
+    </div>
+
+    <script>
+        const logoInput = document.getElementById('logoInput');
+        const favicon = document.getElementById('favicon');
+        const pwa192 = document.getElementById('pwa192');
+        const pwa512 = document.getElementById('pwa512');
+
+        let originalImage = null;
+
+        logoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    originalImage = new Image();
+                    originalImage.onload = function() {
+                        updatePreviews();
+                    };
+                    originalImage.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function updatePreviews() {
+            if (!originalImage) return;
+
+            // Atualizar favicon
+            const faviconCanvas = document.createElement('canvas');
+            faviconCanvas.width = 32;
+            faviconCanvas.height = 32;
+            const faviconCtx = faviconCanvas.getContext('2d');
+            faviconCtx.drawImage(originalImage, 0, 0, 32, 32);
+            favicon.src = faviconCanvas.toDataURL();
+
+            // Atualizar PWA 192
+            const pwa192Canvas = document.createElement('canvas');
+            pwa192Canvas.width = 192;
+            pwa192Canvas.height = 192;
+            const pwa192Ctx = pwa192Canvas.getContext('2d');
+            pwa192Ctx.drawImage(originalImage, 0, 0, 192, 192);
+            pwa192.src = pwa192Canvas.toDataURL();
+
+            // Atualizar PWA 512
+            const pwa512Canvas = document.createElement('canvas');
+            pwa512Canvas.width = 512;
+            pwa512Canvas.height = 512;
+            const pwa512Ctx = pwa512Canvas.getContext('2d');
+            pwa512Ctx.drawImage(originalImage, 0, 0, 512, 512);
+            pwa512.src = pwa512Canvas.toDataURL();
+        }
+
+        function downloadCanvas(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        function downloadFavicon() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(originalImage, 0, 0, 32, 32);
+            downloadCanvas(canvas, 'favicon.png');
+        }
+
+        function downloadPWA192() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 192;
+            canvas.height = 192;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(originalImage, 0, 0, 192, 192);
+            downloadCanvas(canvas, 'icon-192x192.png');
+        }
+
+        function downloadPWA512() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(originalImage, 0, 0, 512, 512);
+            downloadCanvas(canvas, 'icon-512x512.png');
+        }
+
+        function downloadAll() {
+            downloadFavicon();
+            setTimeout(() => downloadPWA192(), 100);
+            setTimeout(() => downloadPWA512(), 200);
+        }
+    </script>
+</body>
+</html>

@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Eye, EyeOff, Settings, Mail, Lock } from 'lucide-react'
 import { supabase } from '@/lib/utils'
+import { usePushNotifications } from '@/hooks/usePushNotifications'
+import { useIOSNotifications } from '@/hooks/useIOSNotifications'
 
 const LoginUnificado = ({ theme, toggleTheme }) => {
   const [formData, setFormData] = useState({
@@ -18,6 +20,12 @@ const LoginUnificado = ({ theme, toggleTheme }) => {
   const [lembrar, setLembrar] = useState(false)
   const [msg, setMsg] = useState('')
   const navigate = useNavigate()
+  
+  // Hook para notificações push
+  const { requestPermission, isSupported } = usePushNotifications()
+  
+  // Hook específico para iOS
+  const { requestPermission: requestIOSPermission, isIOS } = useIOSNotifications()
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -51,14 +59,38 @@ const LoginUnificado = ({ theme, toggleTheme }) => {
     const isEmail = usuario.includes('@')
 
     if (isEmail) {
-      // Login de admin pelo e-mail
-      const { data, error } = await supabase
+      // Login de admin pelo e-mail - verificar em ambas as tabelas
+      let data = null
+      let error = null
+      
+      // Primeiro, tentar na tabela usuarios
+      const { data: userData, error: userError } = await supabase
         .from('usuarios')
         .select('*')
         .eq('email', usuario)
-        .eq('senha', senha) // Em produção, use senha criptografada!
+        .eq('senha', senha)
         .eq('tipo', 'admin')
         .single()
+      
+      if (userData) {
+        data = userData
+      } else {
+        // Se não encontrou na tabela usuarios, tentar na tabela funcionarios
+        const { data: funcData, error: funcError } = await supabase
+          .from('funcionarios')
+          .select('*')
+          .eq('email', usuario)
+          .eq('senha', senha)
+          .eq('tipo', 'admin')
+          .single()
+        
+        if (funcData) {
+          data = funcData
+        } else {
+          error = funcError || userError
+        }
+      }
+      
       if (error || !data) {
         setError('E-mail ou senha incorretos.')
         setIsLoading(false)
@@ -88,6 +120,24 @@ const LoginUnificado = ({ theme, toggleTheme }) => {
       }
       setMsg('Login realizado com sucesso! Bem-vindo, ' + data.nome)
       localStorage.setItem('usuarioLogado', JSON.stringify({ ...data, tipo: 'funcionario' }))
+      
+      // Solicitar permissão de notificação para funcionários
+      if (isIOS) {
+        // Para iOS, usar hook específico
+        try {
+          await requestIOSPermission()
+        } catch (error) {
+          console.log('Erro ao solicitar permissão de notificação iOS:', error)
+        }
+      } else if (isSupported) {
+        // Para outros dispositivos, usar hook padrão
+        try {
+          await requestPermission()
+        } catch (error) {
+          console.log('Erro ao solicitar permissão de notificação:', error)
+        }
+      }
+      
       setTimeout(() => {
         navigate('/funcionario-dashboard')
       }, 1000)
@@ -207,15 +257,7 @@ const LoginUnificado = ({ theme, toggleTheme }) => {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              <strong>Credenciais de teste:</strong>
-            </p>
-            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-              <p><strong>Admin:</strong> admin@empresa.com / 123456</p>
-              <p><strong>Funcionário:</strong> 11122233344 / 123456</p>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>

@@ -1,0 +1,7 @@
+{
+  "vapid": {
+    "publicKey": "BN-gRzQww0YLqvtirDISPr6hzAZJv3yYUaSkzeIF4xikiikhu7VYr9AHmG0YCBBByfNGe9qNv9wSnoKZVhnq1puw",
+    "privateKey": "Y93JJLJF8PWu8FDULuYVTVqkadQDHTRO_xK7mkDvpyRs",
+    "subject": "mailto:admin@empresa.com"
+  }
+}

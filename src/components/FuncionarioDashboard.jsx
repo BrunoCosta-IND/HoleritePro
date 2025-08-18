@@ -22,12 +22,16 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/utils'
 import PWAInstallBanner from './PWAInstallBanner'
+import { useIOSNotifications } from '@/hooks/useIOSNotifications'
 
 const FuncionarioDashboard = ({ theme, toggleTheme }) => {
   const navigate = useNavigate()
   const [funcionario, setFuncionario] = useState(null)
   const [holerites, setHolerites] = useState([])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  
+  // Hook para notificações iOS
+  const { checkPendingNotifications, isIOS } = useIOSNotifications()
 
   useEffect(() => {
     // Verificar se o funcionário está logado
@@ -61,7 +65,14 @@ const FuncionarioDashboard = ({ theme, toggleTheme }) => {
       setHolerites(data || [])
     }
     fetchHolerites()
-  }, [navigate])
+    
+    // Verificar notificações pendentes (especialmente para iOS)
+    if (isIOS) {
+      setTimeout(() => {
+        checkPendingNotifications()
+      }, 2000) // Aguardar 2 segundos para garantir que tudo carregou
+    }
+  }, [navigate, isIOS, checkPendingNotifications])
 
   const handleLogout = () => {
     localStorage.removeItem('funcionarioLogado')

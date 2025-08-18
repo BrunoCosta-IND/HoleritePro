@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste PWA - Portal de Holerites</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .debug-info {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste PWA - Portal de Holerites</h1>
+    
+    <div class="card">
+        <h2>📋 Checklist PWA</h2>
+        <div id="checklist"></div>
+    </div>
+
+    <div class="card">
+        <h2>🔧 Testes Manuais</h2>
+        <button onclick="testInstall()">Testar Instalação</button>
+        <button onclick="testNotifications()">Testar Notificações</button>
+        <button onclick="testOffline()">Testar Modo Offline</button>
+        <button onclick="showDebugInfo()">Mostrar Info Debug</button>
+    </div>
+
+    <div class="card">
+        <h2>📊 Status do Service Worker</h2>
+        <div id="sw-status"></div>
+    </div>
+
+    <div class="card">
+        <h2>🔍 Informações Debug</h2>
+        <div id="debug-info" class="debug-info" style="display: none;"></div>
+    </div>
+
+    <script>
+        const checklist = document.getElementById('checklist');
+        const swStatus = document.getElementById('sw-status');
+        const debugInfo = document.getElementById('debug-info');
+
+        // Função para adicionar status
+        function addStatus(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = message;
+            checklist.appendChild(div);
+        }
+
+        // Verificar HTTPS
+        if (location.protocol === 'https:' || location.hostname === 'localhost') {
+            addStatus('✅ HTTPS/HTTP local funcionando', 'success');
+        } else {
+            addStatus('❌ HTTPS necessário para PWA', 'error');
+        }
+
+        // Verificar Service Worker
+        if ('serviceWorker' in navigator) {
+            addStatus('✅ Service Worker suportado', 'success');
+        } else {
+            addStatus('❌ Service Worker não suportado', 'error');
+        }
+
+        // Verificar Push Manager
+        if ('PushManager' in window) {
+            addStatus('✅ Push Manager suportado', 'success');
+        } else {
+            addStatus('⚠️ Push Manager não suportado', 'warning');
+        }
+
+        // Verificar Manifest
+        if (document.querySelector('link[rel="manifest"]')) {
+            addStatus('✅ Manifest.json encontrado', 'success');
+        } else {
+            addStatus('❌ Manifest.json não encontrado', 'error');
+        }
+
+        // Verificar se está em modo standalone
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            addStatus('✅ App instalado (modo standalone)', 'success');
+        } else {
+            addStatus('ℹ️ App não instalado (modo browser)', 'info');
+        }
+
+        // Verificar Service Worker
+        async function checkServiceWorker() {
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                if (registration) {
+                    swStatus.innerHTML = `
+                        <div class="status success">
+                            ✅ Service Worker registrado<br>
+                            <strong>Status:</strong> ${registration.active ? 'Ativo' : 'Inativo'}<br>
+                            <strong>Scope:</strong> ${registration.scope}
+                        </div>
+                    `;
+                } else {
+                    swStatus.innerHTML = `
+                        <div class="status error">
+                            ❌ Service Worker não registrado
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                swStatus.innerHTML = `
+                    <div class="status error">
+                        ❌ Erro ao verificar Service Worker: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Testar instalação
+        function testInstall() {
+            if (window.deferredPrompt) {
+                window.deferredPrompt.prompt();
+                window.deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        alert('✅ App instalado com sucesso!');
+                    } else {
+                        alert('❌ Instalação cancelada pelo usuário');
+                    }
+                    window.deferredPrompt = null;
+                });
+            } else {
+                alert('ℹ️ Prompt de instalação não disponível');
+            }
+        }
+
+        // Testar notificações
+        async function testNotifications() {
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                                         new Notification('Teste PWA', {
+                         body: 'Notificação de teste funcionando!',
+                         icon: '/logo.png'
+                     });
+                    alert('✅ Notificação enviada!');
+                } else {
+                    alert('❌ Permissão de notificação negada');
+                }
+            } else {
+                alert('❌ Notificações não suportadas');
+            }
+        }
+
+        // Testar modo offline
+        function testOffline() {
+            if ('caches' in window) {
+                caches.keys().then(cacheNames => {
+                    alert(`📦 Caches encontrados: ${cacheNames.join(', ')}`);
+                });
+            } else {
+                alert('❌ Cache API não suportada');
+            }
+        }
+
+        // Mostrar informações debug
+        function showDebugInfo() {
+            const info = {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language,
+                cookieEnabled: navigator.cookieEnabled,
+                onLine: navigator.onLine,
+                serviceWorker: 'serviceWorker' in navigator,
+                pushManager: 'PushManager' in window,
+                caches: 'caches' in window,
+                localStorage: 'localStorage' in window,
+                manifest: document.querySelector('link[rel="manifest"]')?.href,
+                standalone: window.matchMedia('(display-mode: standalone)').matches,
+                url: window.location.href
+            };
+
+            debugInfo.style.display = 'block';
+            debugInfo.innerHTML = JSON.stringify(info, null, 2);
+        }
+
+        // Listener para beforeinstallprompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.deferredPrompt = e;
+            addStatus('✅ Prompt de instalação disponível', 'success');
+        });
+
+        // Listener para appinstalled
+        window.addEventListener('appinstalled', () => {
+            addStatus('✅ App instalado com sucesso!', 'success');
+        });
+
+        // Inicializar
+        checkServiceWorker();
+    </script>
+</body>
+</html>

@@ -402,6 +402,10 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
           console.log('📢 === ENVIANDO WEBHOOK ===')
           await enviarAvisoHoleritePronto(arquivo)
           
+          // Enviar notificação push
+          console.log('📱 === ENVIANDO NOTIFICAÇÃO PUSH ===')
+          await enviarNotificacaoPush(arquivo)
+          
           console.log('✅ Arquivo processado com sucesso!')
           atualizaStatus(arquivo.id, 'sucesso')
         } catch (error) {
@@ -597,6 +601,127 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
     } catch (error) {
       console.error('❌ Erro ao enviar aviso de holerite pronto:', error)
       console.error('📋 Stack trace:', error.stack)
+    }
+  }
+
+  // Função para enviar notificação push
+  const enviarNotificacaoPush = async (arquivo) => {
+    try {
+      console.log('📱 Enviando notificação push para funcionário:', arquivo.cpf)
+      
+      // Buscar dados do funcionário
+      const { data: funcionario, error: funcError } = await supabase
+        .from('funcionarios')
+        .select('*')
+        .eq('cpf', arquivo.cpf)
+        .single()
+
+      if (funcError || !funcionario) {
+        console.error('❌ Funcionário não encontrado para notificação push:', arquivo.cpf)
+        return
+      }
+
+      console.log('✅ Funcionário encontrado para notificação:', funcionario.nome)
+
+      // Buscar subscription do funcionário
+      const { data: subscription, error: subError } = await supabase
+        .from('push_subscriptions')
+        .select('*')
+        .eq('user_id', funcionario.id)
+        .single()
+
+      if (subError || !subscription) {
+        console.log('⚠️ Funcionário não tem subscription de notificação push:', funcionario.nome)
+        return
+      }
+
+      // Verificar se é iOS
+      const isIOS = subscription.platform === 'ios'
+      
+      if (isIOS) {
+        console.log('📱 iOS detectado - salvando notificação pendente')
+        // Para iOS, salvar notificação pendente para ser mostrada quando o app abrir
+        await savePendingNotification(funcionario.id, payload)
+        return
+      }
+
+      console.log('✅ Subscription encontrada, enviando notificação push...')
+
+      // Preparar payload da notificação
+      const payload = {
+        title: 'Novo Holerite Disponível! 📄',
+        body: `Olá ${funcionario.nome}! Seu holerite de ${arquivo.mes}/${arquivo.ano} está pronto para visualização.`,
+        icon: '/logo.png',
+        badge: '/logo.png',
+        data: {
+          url: '/funcionario-dashboard',
+          cpf: arquivo.cpf,
+          mes: arquivo.mes,
+          ano: arquivo.ano
+        },
+        actions: [
+          {
+            action: 'view',
+            title: 'Ver Holerite',
+            icon: '/logo.png'
+          },
+          {
+            action: 'dismiss',
+            title: 'Fechar',
+            icon: '/logo.png'
+          }
+        ]
+      }
+
+      // Enviar notificação push via Supabase Edge Functions
+      const { error: pushError } = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          subscription: {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: subscription.p256dh,
+              auth: subscription.auth
+            }
+          },
+          payload: payload
+        }
+      })
+
+      if (pushError) {
+        console.error('❌ Erro ao enviar notificação push:', pushError)
+      } else {
+        console.log('✅ Notificação push enviada com sucesso!')
+      }
+
+    } catch (error) {
+      console.error('❌ Erro ao enviar notificação push:', error)
+      console.error('📋 Stack trace:', error.stack)
+    }
+  }
+
+  // Função para salvar notificação pendente (iOS)
+  const savePendingNotification = async (userId, payload) => {
+    try {
+      const notificationData = {
+        user_id: userId,
+        title: payload.title,
+        body: payload.body,
+        data: payload.data,
+        sent: false,
+        created_at: new Date().toISOString()
+      }
+
+      const { error } = await supabase
+        .from('pending_notifications')
+        .insert(notificationData)
+
+      if (error) {
+        console.error('❌ Erro ao salvar notificação pendente:', error)
+      } else {
+        console.log('✅ Notificação pendente salva com sucesso para iOS')
+      }
+    } catch (error) {
+      console.error('❌ Erro ao salvar notificação pendente:', error)
     }
   }
 

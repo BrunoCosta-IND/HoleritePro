@@ -198,9 +198,9 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
       {/* Conteúdo principal */}
       <main className="container mx-auto px-6 py-8">
         {/* Cards informativos */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="flex flex-wrap gap-4 mb-6 w-full">
           {/* Total de funcionários */}
-          <Card>
+          <Card className="flex-1 min-w-[280px]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Funcionários Cadastrados</CardTitle>
               <Users className="h-4 w-4 text-blue-500" />
@@ -214,7 +214,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
           </Card>
 
           {/* Holerites enviados */}
-          <Card>
+          <Card className="flex-1 min-w-[280px]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Holerites Enviados no Mês</CardTitle>
               <FileText className="h-4 w-4 text-green-500" />
@@ -229,7 +229,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
 
           {/* Holerites assinados - Condicional baseado nas funcionalidades PRO */}
           {funcionalidadesPRO.relatorioAssinaturas ? (
-            <Card>
+            <Card className="flex-1 min-w-[280px]">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Holerites Assinados</CardTitle>
                 <CheckCircle className="h-4 w-4 text-purple-500" />
@@ -242,7 +242,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-dashed border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20">
+            <Card className="flex-1 min-w-[280px] border-dashed border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-yellow-700 dark:text-yellow-300">Relatórios PRO</CardTitle>
                 <Crown className="h-4 w-4 text-yellow-500" />
@@ -256,7 +256,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
           )}
 
           {/* Status geral */}
-          <Card>
+          <Card className="flex-1 min-w-[280px]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Status do Sistema</CardTitle>
               <Calendar className="h-4 w-4 text-orange-500" />
@@ -271,9 +271,9 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
         </div>
 
         {/* Ações rápidas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+        <div className="flex flex-wrap gap-4 mb-6 w-full">
           {/* Adicionar funcionário */}
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200" 
+          <Card className="flex-1 min-w-[280px] cursor-pointer hover:shadow-lg transition-shadow duration-200" 
                 onClick={() => handleNavigation('/admin/funcionarios/cadastrar')}>
             <CardHeader>
               <div className="flex items-center space-x-3">
@@ -304,7 +304,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
           </Card>
 
           {/* Cadastrar Administrador */}
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200" 
+          <Card className="flex-1 min-w-[280px] cursor-pointer hover:shadow-lg transition-shadow duration-200" 
                 onClick={() => handleNavigation('/admin/admins/cadastrar')}>
             <CardHeader>
               <div className="flex items-center space-x-3">
@@ -335,7 +335,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
           </Card>
 
           {/* Upload de holerites */}
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200"
+          <Card className="flex-1 min-w-[280px] cursor-pointer hover:shadow-lg transition-shadow duration-200"
                 onClick={() => handleNavigation('/admin/holerites/upload')}>
             <CardHeader>
               <div className="flex items-center space-x-3">
@@ -367,7 +367,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
 
           {/* Gerar relatórios - Condicional */}
           {funcionalidadesPRO.relatorioAssinaturas ? (
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200"
+            <Card className="flex-1 min-w-[280px] cursor-pointer hover:shadow-lg transition-shadow duration-200"
                   onClick={() => handleNavigation('/admin/relatorios')}>
               <CardHeader>
                 <div className="flex items-center space-x-3">
@@ -397,7 +397,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
               </CardContent>
             </Card>
           ) : (
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200"
+            <Card className="flex-1 min-w-[280px] cursor-pointer hover:shadow-lg transition-shadow duration-200"
                   onClick={() => handleNavigation('/admin/relatorios')}>
               <CardHeader>
                 <div className="flex items-center space-x-3">
@@ -430,7 +430,8 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
         </div>
 
         {/* Últimos uploads */}
-        <Card>
+        <div className="flex flex-wrap gap-4">
+          <Card className="w-full">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Clock className="h-5 w-5 text-blue-500" />
@@ -467,6 +468,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
             )}
           </CardContent>
         </Card>
+        </div>
       </main>
     </div>
   )
