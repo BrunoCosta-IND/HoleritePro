@@ -323,7 +323,7 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
           }
           
           // Executar notificações em background (não aguardar)
-          setImmediate(() => {
+          setTimeout(() => {
             Promise.allSettled([
               enviarAvisoHoleritePronto(arquivo),
               enviarNotificacaoPush(arquivo)
@@ -334,7 +334,7 @@ const AdminUploadHolerites = ({ theme, toggleTheme }) => {
                 }
               })
             })
-          })
+          }, 0)
           
           atualizaStatus(arquivo.id, 'sucesso')
           return { success: true, arquivo }

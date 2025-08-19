@@ -399,12 +399,12 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         })
         
         // Executar operações em background (não aguardar)
-        setImmediate(() => {
+        setTimeout(() => {
           // Enviar webhook
           enviarWebhookFuncionarioCadastrado(dadosFuncionario)
           // Recarregar lista de funcionários
           fetchFuncionarios()
-        })
+        }, 0)
         
       } catch (error) {
         // Mensagens de erro mais específicas
@@ -465,9 +465,9 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
       if (error) {
         setErroSupabase('Erro ao excluir funcionário')
       } else {
-        setImmediate(() => {
+        setTimeout(() => {
           fetchFuncionarios()
-        })
+        }, 0)
       }
     } catch (error) {
       setErroSupabase('Erro de conexão')

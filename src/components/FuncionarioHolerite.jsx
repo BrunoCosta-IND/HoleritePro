@@ -66,12 +66,12 @@ const FuncionarioHolerite = ({ theme }) => {
     }
 
     // Buscar IP em background (não aguardar)
-    setImmediate(() => {
+    setTimeout(() => {
       fetch('https://api.ipify.org?format=json')
         .then(res => res.json())
         .then(data => setIp(data.ip))
         .catch(() => setIp(''))
-    })
+    }, 0)
 
     fetchData()
   }, [navigate, id])
@@ -170,9 +170,9 @@ const FuncionarioHolerite = ({ theme }) => {
       }
       
       // Enviar webhook em background (não aguardar)
-      setImmediate(() => {
+      setTimeout(() => {
         enviarWebhookHoleriteAssinado(holerite, funcionario)
-      })
+      }, 0)
       
       setDocumentoAssinado(true)
       // Redirecionar imediatamente
