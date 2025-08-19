@@ -288,9 +288,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    console.log('Validando formulário...', formData)
     if (!validateForm()) {
-      console.log('Formulário inválido, erros:', errors)
       return
     }
 
@@ -306,32 +304,44 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
     try {
       const senha = gerarSenha()
       
-      // Verificar se CPF já existe
-      const { data: funcionarioExistente, error: checkError } = await supabase
-        .from('funcionarios')
-        .select('cpf')
-        .eq('cpf', formData.cpf)
-        .single()
-
-      if (funcionarioExistente) {
+      // Verificar CPF e email em paralelo para otimizar
+      const verificacoes = []
+      
+      // Verificar CPF
+      verificacoes.push(
+        supabase
+          .from('funcionarios')
+          .select('cpf')
+          .eq('cpf', formData.cpf)
+          .single()
+      )
+      
+      // Verificar email (apenas se foi preenchido)
+      if (formData.email.trim()) {
+        verificacoes.push(
+          supabase
+            .from('funcionarios')
+            .select('email')
+            .eq('email', formData.email)
+            .single()
+        )
+      }
+      
+      // Executar verificações em paralelo
+      const resultados = await Promise.allSettled(verificacoes)
+      
+      // Verificar CPF
+      if (resultados[0].status === 'fulfilled' && resultados[0].value.data) {
         setErrors({ cpf: 'CPF já cadastrado' })
         setIsLoading(false)
         return
       }
-
-      // Verificar se email já existe (apenas se foi preenchido)
-      if (formData.email.trim()) {
-        const { data: emailExistente, error: emailCheckError } = await supabase
-          .from('funcionarios')
-          .select('email')
-          .eq('email', formData.email)
-          .single()
-
-        if (emailExistente) {
-          setErrors({ email: 'E-mail já cadastrado' })
-          setIsLoading(false)
-          return
-        }
+      
+      // Verificar email
+      if (formData.email.trim() && resultados[1] && resultados[1].status === 'fulfilled' && resultados[1].value.data) {
+        setErrors({ email: 'E-mail já cadastrado' })
+        setIsLoading(false)
+        return
       }
 
       // Gerar e-mail aleatório se não foi preenchido
@@ -407,8 +417,10 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
           email: ''
         })
         
-        // Recarregar lista de funcionários
-        await fetchFuncionarios()
+        // Recarregar lista de funcionários em background
+        setImmediate(() => {
+          fetchFuncionarios()
+        })
       }
     } catch (error) {
       setErroSupabase(`Erro de conexão: ${error.message}`)
@@ -447,7 +459,9 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
       if (error) {
         setErroSupabase('Erro ao excluir funcionário')
       } else {
-        await fetchFuncionarios()
+        setImmediate(() => {
+          fetchFuncionarios()
+        })
       }
     } catch (error) {
       setErroSupabase('Erro de conexão')

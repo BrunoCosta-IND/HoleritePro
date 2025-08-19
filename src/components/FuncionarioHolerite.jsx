@@ -43,27 +43,37 @@ const FuncionarioHolerite = ({ theme }) => {
     const dadosUsuario = JSON.parse(usuarioLogado)
     setFuncionario(dadosUsuario)
 
-    // Buscar IP público
-    fetch('https://api.ipify.org?format=json')
-      .then(res => res.json())
-      .then(data => setIp(data.ip))
-      .catch(() => setIp(''))
-
-    // Buscar holerite do Supabase pelo ID
-    const fetchHolerite = async () => {
-      const { data, error } = await supabase
-        .from('holerite')
-        .select('*')
-        .eq('id', id)
-        .single()
-      if (!error && data && data.cpf === dadosUsuario.cpf) {
-        setHolerite(data)
-      } else {
+    // Buscar IP público e holerite em paralelo
+    const fetchData = async () => {
+      try {
+        // Buscar holerite do Supabase pelo ID
+        const { data, error } = await supabase
+          .from('holerite')
+          .select('*')
+          .eq('id', id)
+          .single()
+        
+        if (!error && data && data.cpf === dadosUsuario.cpf) {
+          setHolerite(data)
+        } else {
+          setHolerite(null)
+        }
+      } catch (error) {
         setHolerite(null)
+      } finally {
+        setIsLoading(false)
       }
-      setIsLoading(false)
     }
-    fetchHolerite()
+
+    // Buscar IP em background (não aguardar)
+    setImmediate(() => {
+      fetch('https://api.ipify.org?format=json')
+        .then(res => res.json())
+        .then(data => setIp(data.ip))
+        .catch(() => setIp(''))
+    })
+
+    fetchData()
   }, [navigate, id])
 
   const handleVoltar = () => {
@@ -73,12 +83,21 @@ const FuncionarioHolerite = ({ theme }) => {
   // Função para enviar webhook quando holerite for assinado
   const enviarWebhookHoleriteAssinado = async (holerite, funcionario) => {
     try {
-      // Buscar configurações do webhook
-      const { data: webhookConfig, error: webhookError } = await supabase
+      // Buscar configurações do webhook com timeout
+      const webhookPromise = supabase
         .from('webhook_config')
         .select('*')
         .order('updated_at', { ascending: false })
         .limit(1)
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 5000)
+      )
+
+      const { data: webhookConfig, error: webhookError } = await Promise.race([
+        webhookPromise,
+        timeoutPromise
+      ])
 
       if (webhookError) {
         return
@@ -139,55 +158,27 @@ const FuncionarioHolerite = ({ theme }) => {
     
     setAssinandoDocumento(true)
     
-    // Atualizar status no Supabase - APENAS COM CAMPOS BÁSICOS
-    const now = new Date()
-    const dataAssinatura = now.toISOString()
-    
-    // Primeiro, tentar apenas com status
-    const dadosAtualizacao = {
-      status: 'assinado'
-    }
-    
     try {
-      // Tentativa 1: Apenas status
-      const { data, error } = await supabase
+      // Atualizar status no Supabase (otimizado)
+      const { error } = await supabase
         .from('holerite')
-        .update(dadosAtualizacao)
+        .update({ status: 'assinado' })
         .eq('id', holerite.id)
-        .select()
       
       if (error) {
-        // Tentativa 2: Sem select
-        const { error: error2 } = await supabase
-          .from('holerite')
-          .update(dadosAtualizacao)
-          .eq('id', holerite.id)
-        
-        if (error2) {
-          // Tentativa 3: Apenas com campos básicos
-          const dadosBasicos = {
-            status: 'assinado'
-          }
-          
-          const { error: error3 } = await supabase
-            .from('holerite')
-            .update(dadosBasicos)
-            .eq('id', holerite.id)
-          
-          if (error3) {
-            return
-          }
-        }
+        return
       }
       
-      // Enviar webhook após assinatura bem-sucedida
-      await enviarWebhookHoleriteAssinado(holerite, funcionario)
+      // Enviar webhook em background (não aguardar)
+      setImmediate(() => {
+        enviarWebhookHoleriteAssinado(holerite, funcionario)
+      })
       
       setDocumentoAssinado(true)
-      // Mostra mensagem de sucesso antes de redirecionar
+      // Redirecionar imediatamente
       setTimeout(() => {
         navigate('/funcionario-dashboard')
-      }, 2000)
+      }, 1000)
       
     } catch (catchError) {
       // Erro silencioso
