@@ -567,10 +567,10 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
                   <Label htmlFor="email">E-mail</Label>
                   <Input
                     id="email"
-                    type="email"
+                    type="text"
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
-                    placeholder="funcionario@empresa.com"
+                    placeholder="funcionario@empresa.com (opcional)"
                     className={errors.email ? 'border-red-500' : ''}
                   />
                   {errors.email && (
