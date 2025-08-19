@@ -1,4 +1,4 @@
-const CACHE_NAME = 'holerites-v2';
+const CACHE_NAME = 'holerites-v3';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -65,13 +65,25 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
+          // Forçar limpeza de caches antigos
           if (cacheName !== CACHE_NAME) {
+            console.log('🗑️ Limpando cache antigo:', cacheName)
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      // Forçar atualização de todas as abas abertas
+      return self.clients.claim();
     })
   );
+});
+
+// Interceptar mensagens para forçar atualização
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Notificações push

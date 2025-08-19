@@ -1,0 +1,4 @@
+Versão: 1.0.1
+Data: 2024-01-XX
+Atualização: Campos email e cargo agora são opcionais
+Build: $(date)
