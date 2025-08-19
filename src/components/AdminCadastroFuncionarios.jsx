@@ -25,9 +25,11 @@ import {
   QrCode
 } from 'lucide-react'
 import { supabase } from '@/lib/utils'
+import { useOptimizedDB } from '@/hooks/useOptimizedDB'
 
 const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
   const navigate = useNavigate()
+  const { optimizedInsert, optimizedSelect, batchOperation } = useOptimizedDB()
   const [acessoNegado, setAcessoNegado] = useState(false)
   
   // Verificação de permissão de administrador
@@ -312,41 +314,41 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
     try {
       const senha = gerarSenha()
       
-      // Verificar CPF e email em paralelo para otimizar
+      // Verificar CPF e email em paralelo usando hook otimizado
       const verificacoes = []
       
       // Verificar CPF
-      verificacoes.push(
-        supabase
-          .from('funcionarios')
-          .select('cpf')
-          .eq('cpf', formData.cpf)
-          .single()
-      )
+      verificacoes.push(async () => {
+        return await optimizedSelect('funcionarios', {
+          select: 'cpf',
+          filters: [{ method: 'eq', column: 'cpf', value: formData.cpf }],
+          limit: 1
+        }, { timeout: 3000, useCache: true, cacheKey: 'cpf_check' })
+      })
       
       // Verificar email (apenas se foi preenchido)
       if (formData.email.trim()) {
-        verificacoes.push(
-          supabase
-            .from('funcionarios')
-            .select('email')
-            .eq('email', formData.email)
-            .single()
-        )
+        verificacoes.push(async () => {
+          return await optimizedSelect('funcionarios', {
+            select: 'email',
+            filters: [{ method: 'eq', column: 'email', value: formData.email }],
+            limit: 1
+          }, { timeout: 3000, useCache: true, cacheKey: 'email_check' })
+        })
       }
       
       // Executar verificações em paralelo
-      const resultados = await Promise.allSettled(verificacoes)
+      const resultados = await batchOperation(verificacoes, { timeout: 5000, parallel: true })
       
       // Verificar CPF
-      if (resultados[0].status === 'fulfilled' && resultados[0].value.data) {
+      if (resultados[0]?.success && resultados[0]?.data && resultados[0]?.data.length > 0) {
         setErrors({ cpf: 'CPF já cadastrado' })
         setIsLoading(false)
         return
       }
       
       // Verificar email
-      if (formData.email.trim() && resultados[1] && resultados[1].status === 'fulfilled' && resultados[1].value.data) {
+      if (formData.email.trim() && resultados[1]?.success && resultados[1]?.data && resultados[1]?.data.length > 0) {
         setErrors({ email: 'E-mail já cadastrado' })
         setIsLoading(false)
         return
@@ -370,12 +372,13 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         ativo: true
       }
 
-      // Inserir funcionário (sem select para ser mais rápido)
-      const { error } = await supabase
-        .from('funcionarios')
-        .insert([dadosFuncionario])
-
-      if (error) {
+      // Inserir funcionário usando hook otimizado
+      try {
+        await optimizedInsert('funcionarios', [dadosFuncionario], {
+          timeout: 5000,
+          useCache: false
+        })
+      } catch (error) {
         // Mensagens de erro mais específicas
         let mensagemErro = 'Erro ao cadastrar funcionário'
         
