@@ -378,28 +378,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
           timeout: 5000,
           useCache: false
         })
-      } catch (error) {
-        // Mensagens de erro mais específicas
-        let mensagemErro = 'Erro ao cadastrar funcionário'
         
-        if (error.code === '23505') {
-          if (error.message.includes('cpf')) {
-            mensagemErro = 'CPF já está cadastrado no sistema'
-          } else if (error.message.includes('email')) {
-            mensagemErro = 'E-mail já está cadastrado no sistema'
-          } else {
-            mensagemErro = 'Dados duplicados encontrados'
-          }
-        } else if (error.code === '23514') {
-          mensagemErro = 'Dados inválidos. Verifique os campos obrigatórios'
-        } else if (error.code === '42P01') {
-          mensagemErro = 'Erro de configuração do banco de dados'
-        } else if (error.message) {
-          mensagemErro = `Erro: ${error.message}`
-        }
-        
-        setErroSupabase(mensagemErro)
-      } else {
         // Mostrar sucesso imediatamente
         setShowSuccess(true)
         setSenhaGerada(senha)
@@ -426,6 +405,28 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
           // Recarregar lista de funcionários
           fetchFuncionarios()
         })
+        
+      } catch (error) {
+        // Mensagens de erro mais específicas
+        let mensagemErro = 'Erro ao cadastrar funcionário'
+        
+        if (error.code === '23505') {
+          if (error.message.includes('cpf')) {
+            mensagemErro = 'CPF já está cadastrado no sistema'
+          } else if (error.message.includes('email')) {
+            mensagemErro = 'E-mail já está cadastrado no sistema'
+          } else {
+            mensagemErro = 'Dados duplicados encontrados'
+          }
+        } else if (error.code === '23514') {
+          mensagemErro = 'Dados inválidos. Verifique os campos obrigatórios'
+        } else if (error.code === '42P01') {
+          mensagemErro = 'Erro de configuração do banco de dados'
+        } else if (error.message) {
+          mensagemErro = `Erro: ${error.message}`
+        }
+        
+        setErroSupabase(mensagemErro)
       }
     } catch (error) {
       setErroSupabase(`Erro de conexão: ${error.message}`)
