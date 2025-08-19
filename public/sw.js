@@ -18,8 +18,10 @@ self.addEventListener('install', (event) => {
 
 // Interceptação de requisições
 self.addEventListener('fetch', (event) => {
-  // Não interceptar requisições para a API do Supabase
-  if (event.request.url.includes('supabase.co')) {
+  // Não interceptar requisições para a API do Supabase ou Google Analytics
+  if (event.request.url.includes('supabase.co') || 
+      event.request.url.includes('google-analytics.com') ||
+      event.request.url.includes('googletagmanager.com')) {
     return;
   }
 
@@ -54,6 +56,7 @@ self.addEventListener('fetch', (event) => {
             if (event.request.destination === 'document') {
               return caches.match('/index.html');
             }
+            return new Response('', { status: 404 });
           });
       })
   );
