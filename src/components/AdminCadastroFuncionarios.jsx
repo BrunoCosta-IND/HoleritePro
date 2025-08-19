@@ -234,29 +234,30 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
   // Função para enviar webhook quando funcionário for cadastrado
   const enviarWebhookFuncionarioCadastrado = async (funcionario) => {
     try {
-      // Buscar configurações do webhook
-      const { data: webhookConfig, error: webhookError } = await supabase
+      // Buscar configurações do webhook com timeout
+      const webhookPromise = supabase
         .from('webhook_config')
         .select('*')
         .order('updated_at', { ascending: false })
         .limit(1)
 
-      if (webhookError) {
-        return
-      }
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 3000)
+      )
 
-      if (!webhookConfig || webhookConfig.length === 0) {
+      const { data: webhookConfig, error: webhookError } = await Promise.race([
+        webhookPromise,
+        timeoutPromise
+      ])
+
+      if (webhookError || !webhookConfig || webhookConfig.length === 0) {
         return
       }
 
       const config = webhookConfig[0]
       
       // Verificar se webhook está ativo e se evento de funcionário cadastrado está habilitado
-      if (!config.ativo || !config.funcionario_cadastrado) {
-        return
-      }
-
-      if (!config.n8n_url) {
+      if (!config.ativo || !config.funcionario_cadastrado || !config.n8n_url) {
         return
       }
       
@@ -273,13 +274,20 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         sistema: 'gestao-holerites'
       }
 
-      const response = await fetch(config.n8n_url, {
+      // Enviar webhook com timeout
+      const fetchPromise = fetch(config.n8n_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload)
       })
+
+      const fetchTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 5000)
+      )
+
+      await Promise.race([fetchPromise, fetchTimeout])
     } catch (error) {
       // Erro silencioso
     }
@@ -362,17 +370,12 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         ativo: true
       }
 
-      console.log('Tentando inserir funcionário:', dadosFuncionario)
-
-      // Inserir funcionário
-      const { data, error } = await supabase
+      // Inserir funcionário (sem select para ser mais rápido)
+      const { error } = await supabase
         .from('funcionarios')
         .insert([dadosFuncionario])
-        .select()
 
       if (error) {
-        console.error('Erro detalhado ao cadastrar funcionário:', error)
-        
         // Mensagens de erro mais específicas
         let mensagemErro = 'Erro ao cadastrar funcionário'
         
@@ -394,11 +397,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
         
         setErroSupabase(mensagemErro)
       } else {
-        // Enviar webhook para funcionário cadastrado
-        if (data && data.length > 0) {
-          await enviarWebhookFuncionarioCadastrado(data[0])
-        }
-        
+        // Mostrar sucesso imediatamente
         setShowSuccess(true)
         setSenhaGerada(senha)
         setErrors({}) // Limpar erros
@@ -417,8 +416,11 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
           email: ''
         })
         
-        // Recarregar lista de funcionários em background
+        // Executar operações em background (não aguardar)
         setImmediate(() => {
+          // Enviar webhook
+          enviarWebhookFuncionarioCadastrado(dadosFuncionario)
+          // Recarregar lista de funcionários
           fetchFuncionarios()
         })
       }
