@@ -54,8 +54,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
   // Configurações da empresa
   const [empresaConfig, setEmpresaConfig] = useState({
     nome: 'Sistema de Gestão de Holerites',
-    corBotoes: '#ff6b35',
-    limiteFuncionarios: 50
+    corBotoes: '#ff6b35'
   })
 
   // Lista de funcionários existentes
@@ -77,7 +76,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
-  const [showLimitAlert, setShowLimitAlert] = useState(false)
+
   const [senhaGerada, setSenhaGerada] = useState('')
   const [emailGerado, setEmailGerado] = useState('')
   const [erroSupabase, setErroSupabase] = useState('')
@@ -101,8 +100,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
       if (data && !error) {
         setEmpresaConfig({
           nome: data.nome || 'Sistema de Gestão de Holerites',
-          corBotoes: data.cor_botoes || '#ff6b35',
-          limiteFuncionarios: data.limite_funcionarios || 50
+          corBotoes: data.cor_botoes || '#ff6b35'
         })
       }
     } catch (error) {
@@ -302,11 +300,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
       return
     }
 
-    // Verificar limite de funcionários
-    if (funcionariosExistentes.length >= empresaConfig.limiteFuncionarios) {
-      setShowLimitAlert(true)
-      return
-    }
+
 
     setIsLoading(true)
     setErroSupabase('')
@@ -675,14 +669,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
                   </Alert>
                 )}
 
-                {showLimitAlert && (
-                  <Alert className="mt-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription className="text-yellow-700 dark:text-yellow-300">
-                      Limite de funcionários atingido. Entre em contato com o suporte para aumentar o limite.
-                    </AlertDescription>
-                  </Alert>
-                )}
+
               </form>
             </CardContent>
           </Card>
@@ -693,7 +680,7 @@ const AdminCadastroFuncionarios = ({ theme, toggleTheme }) => {
               <CardTitle className="flex items-center space-x-2">
                 <Users className="h-5 w-5 text-green-500" />
                 <span>Funcionários Cadastrados</span>
-                <Badge variant="secondary">{funcionariosExistentes.length}/{empresaConfig.limiteFuncionarios}</Badge>
+                <Badge variant="secondary">{funcionariosExistentes.length}</Badge>
               </CardTitle>
               <CardDescription>
                 Gerencie os funcionários existentes
